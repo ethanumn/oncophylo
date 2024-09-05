@@ -1,0 +1,5 @@
+include oncophylo/io/*.py
+include oncophylo/tl/*.py
+include oncophylo/pl/*.py
+include oncophylo/ul/*.py
+include install_dependencies.sh
