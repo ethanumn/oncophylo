@@ -10,7 +10,7 @@ def scOrchard(input_df,
               fp=0.001, 
               fn=0.2, 
               K=0,
-              J=0,
+              R=0,
               minCellsL=1,
               minCellsG=1,
               seed=None, 
@@ -37,7 +37,7 @@ def scOrchard(input_df,
         The false negative rate to use for likelihood calculations
     K: int
         The maximum number of losses per mutation to consider. Default = 0
-    J: int
+    R: int
         The maximum number of gains per mutation to consider. Default = 0
     minCellsL: int
         The minimum number of cells that benefit from a mutation loss in order to consider the loss. 
@@ -69,19 +69,25 @@ def scOrchard(input_df,
     cell_names_fn = os.path.join(temp_path, "cell_names.txt")
     gene_names_fn = os.path.join(temp_path, "gene_names.txt")
     clusters_fn = os.path.join(temp_path, "clusters.txt")
-    loss_pairs_fn = os.path.join(temp_path, "loss_pairs.txt")
+    mutation_clusters_fn = os.path.join(temp_path, "mutation_clusters.txt")
 
     output_path = os.path.join(temp_path)
     output_prefix = "out"
     
-    clusters, loss_pairs = [], []
+    clusters, pairs = [], []
     if constrained:
         if op.ul.CONST.CLUSTER_ID not in input_df.columns:
             raise Exception("%s isn't in the input data frame columns!" % op.ul.CONST.CLUSTER_ID) 
         clusters = input_df[op.ul.CONST.CLUSTER_ID].values
         input_df[op.ul.CONST.CLUSTER_ID].to_csv(clusters_fn, index=False, header=False)
         input_df = input_df.drop(columns=op.ul.CONST.CLUSTER_ID)
-        loss_pairs = op.ul.find_loss_pairs(input_df, list(input_df.columns), np.unique(clusters).size)
+        clusterings, _ = op.tl.cluster.KModes(input_df.T, 
+                                              list(input_df.index), 
+                                              k=len(np.unique(clusters)))
+        clusters = [list(input_df.columns[indices]) for indices in clusterings[0]]
+        with open(mutation_clusters_fn, "w") as f:
+            for cluster in clusters:
+                f.write(" ".join(map(str, cluster)) + "\n")
 
     else:
         if op.ul.CONST.CLUSTER_ID in input_df.columns:
@@ -90,7 +96,6 @@ def scOrchard(input_df,
     input_df.T.to_csv(input_fn, sep=" ", index=False, header=False)
     input_df.index.to_series().to_csv(cell_names_fn, index=False, header=False)
     input_df.columns.to_series().to_csv(gene_names_fn, index=False, header=False)
-    pd.DataFrame(loss_pairs).to_csv(loss_pairs_fn, index=False, header=False, sep=" ")
 
     n, m = input_df.shape
     
@@ -105,7 +110,7 @@ def scOrchard(input_df,
             "-k", "%s" % k,
             "-e", "%d" % e,
             "-K", "%d" % K,
-            "-J", "%d" % J,
+            "-R", "%d" % R,
             "-minCellsL", "%d" % minCellsL,
             "-minCellsG", "%d" % minCellsG,
             "-n", "%d" % n,
@@ -122,7 +127,8 @@ def scOrchard(input_df,
             "-homoplasyOnly" if homoplasy_only else "",
             "-onlyAddLeaves" if only_add_leaves else "",
             "-s", "%s" % clusters_fn if constrained else "",
-            "-l", "%s" % loss_pairs_fn if constrained else ""
+            "-l", "%s" % mutation_clusters_fn if constrained else "",
+            "-constraint", "%d" % (3 if constrained else 0)
     ]
 
     # run scOrchard

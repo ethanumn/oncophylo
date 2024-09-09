@@ -4,16 +4,17 @@ import networkx as nx
 
 from oncophylo.ul import CONST 
 
-# conflict_free.py
-def resolve_genotypes(T, input_df):
+def resolve_genotypes(T, input_df=None):
     """Resolves genotypes given a cell tree
     
     Input
     -------
     T : Networkx.DiGraph
         A cell tree represented with a Networkx Digraph. All leaves and mutations in the input_df must be present in the tree.
-    input_df : pd.DataFrame
-        The character matrix used as input to reconstruct the tree. Rows must be cells and columns mutations.
+    input_df : pd.DataFrame, optional
+        The character matrix used as input to reconstruct the tree. Rows must be cells and columns mutations. If not provided,
+        then the graph attribute will create its own character matrix containing only the characters and no other data that might
+        have been provided with the input.
 
     Returns
     --------
@@ -25,11 +26,14 @@ def resolve_genotypes(T, input_df):
     """
     assert T.graph["type"] == CONST.CELL_TREE, "Tree must be of type %s not %s" % (CONST.CELL_TREE, T.graph["type"])
     
-    pred_df = input_df.copy()
+    if isinstance(input_df, pd.DataFrame):
+        output_df = input_df.copy()
+    else:
+        output_df = pd.DataFrame(0, index=T.graph["cells"], columns=T.graph["mutations"])
         
-    for col in pred_df.columns:
+    for col in output_df.columns:
         if col in T.graph["mutations"]:
-            pred_df[col] = 0
+            output_df[col] = 0
         
     # find all cells with the same parent, they have the same genotypes
     cell_parents = {}
@@ -43,34 +47,37 @@ def resolve_genotypes(T, input_df):
     # go through each group of cells, find the genotype for one of them and you find it for all
     for am, cells in cell_parents.items():
 
-        lost = []
-        gained = []
+        seen = set() # keep track of mutations we've already seen
 
         while am != T.graph["root_name"]: # going from leaves up
-            if am in T.graph["losses"]:
+            if am in T.graph["losses"]: # detect mutation losses
                 lost_mutation = am.lstrip(T.graph["loss_prefix"]).split(" ")[0]
-                if lost_mutation in gained: # recurrence
-                    pred_df.loc[cells, lost_mutation] = 5
-                else:
-                    pred_df.loc[cells, lost_mutation] = 2
-                lost.append(lost_mutation)
-            elif am in T.graph["gains"]: # homoplasy
-                gained_mutation = am.lstrip(T.graph["gain_prefix"]).split(" ")[0]
-                if gained_mutation in lost:
+                if lost_mutation in seen:
                     pass
                 else:
-                    pred_df.loc[cells, gained_mutation] = 4
-                    gained.append(gained_mutation)
+                    output_df.loc[cells, lost_mutation] = 2
+                    seen.add(lost_mutation)
+            elif am in T.graph["gains"]: # detect homomplasy and recurrence
+                gained_mutation = am.lstrip(T.graph["gain_prefix"]).split(" ")[0]
+                if gained_mutation in seen:
+                    pass
+                else:
+                    output_df.loc[cells, gained_mutation] = 4
+                    seen.add(gained_mutation)
 
-            elif am in T.graph["mutations"] and (am not in lost) and (am not in gained):
-                pred_df.loc[cells, am] = 1
+            elif am in T.graph["mutations"]:
+                if am in seen:
+                    pass
+                else:
+                    output_df.loc[cells, am] = 1
+                    seen.add(am)
             else:
                 pass
             am = list(T.predecessors(am))[0]
 
-    T.graph["data"] = pred_df
+    T.graph["data"] = output_df
     
-    return T, pred_df
+    return T, output_df
 
 def to_clonal_tree(T, df):
     """Converts a mutation tree with cell attachments to a clonal tree."""

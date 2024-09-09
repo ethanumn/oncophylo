@@ -1,7 +1,9 @@
 import pandas as pd 
 import networkx as nx 
 import numpy as np 
+from itertools import combinations 
 
+import oncophylo as op 
 from oncophylo.ul import CONST
 
 def score_genotypes(B, B_input, fp, fn):
@@ -84,7 +86,7 @@ def clonal_ad(T):
     """Computes the set of Ancestor-Descendant relationships in a clonal tree. Assumes nodes are cells and edges
     are labeled by mutations"""
     assert T.graph["type"] == CONST.CLONAL_TREE, "Input type of tree must be clonal! Use to_clonal_tree() to convert a mutation tree to a cell tree."
-    root = root_id(T)
+    root = op.ul.root_id(T)
     leaf_nodes = [node for node in T.nodes() if T.in_degree(node)!=0 and T.out_degree(node)==0]
     ad = set()
     for l in leaf_nodes:
@@ -106,7 +108,7 @@ def clonal_clusters(T):
     """Computes the set of clusters in a clonal tree"""
     assert T.graph["type"] == CONST.CLONAL_TREE, "Input type of tree must have nodes as cells and edges as mutations! Use to_clonal_tree() to convert a mutation tree to a cell tree."
     clusters = []
-    root = root_id(T)
+    root = op.ul.root_id(T)
     edge_dfs = nx.dfs_edges(T, source=root)
     ancestral_mutations = []
     for e in edge_dfs:
