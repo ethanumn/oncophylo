@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd 
 import networkx as nx 
 
+import oncophylo as op
 from oncophylo.ul import CONST 
 
 def resolve_genotypes(T, input_df=None):
@@ -80,7 +81,7 @@ def resolve_genotypes(T, input_df=None):
     return T, output_df
 
 def to_clonal_tree(T, df):
-    """Converts a mutation tree with cell attachments to a clonal tree."""
+    """Converts a mutation tree with cell attachments (i.e., a cell tree) to a clonal tree."""
      # copy because we're first going to remove any mutations that are leaves without cells attached
     if not isinstance(T, nx.DiGraph):
         print("Input tree is not a Networkx DiGraph, returning an empty tree...")
@@ -103,8 +104,8 @@ def to_clonal_tree(T, df):
     node_list = list(T_.nodes())
     tree.graph["cells"] = list(df.index)
     tree.graph["mutations"] = list(df.columns)
-    tree.graph["losses"] = list(filter(lambda n: n.startswith(T_.graph["loss_prefix"]), node_list))
-    tree.graph["gains"] = list(filter(lambda n: n.startswith(T_.graph["gain_prefix"]), node_list))
+    tree.graph["losses"] = sorted(filter(lambda n: n.startswith(T_.graph["loss_prefix"]), node_list))
+    tree.graph["gains"] = sorted(filter(lambda n: n.startswith(T_.graph["gain_prefix"]), node_list))
     tree.graph["normal_cells"] = list(df[df.sum(axis=1) == 0].index)
     tree.graph["root_id"] = 0
     tree.graph["loss_prefix"] = T_.graph["loss_prefix"]
@@ -184,28 +185,23 @@ def to_clonal_tree(T, df):
     return tree
 
 
-def matrix_to_clonal_tree(df):
-    """Convert a conflict-free matrix to a tree object.
+def conflict_free_matrix_to_clonal_tree(df):
+    """Convert a CONFLICT FREE cell x mutation matrix to a Networkx.DiGraph.
 
-    This function converts a conflict-free matrix to a tree object in which
-    nodes are labeled with cells and edges are lables with mutations. The root is
-    labled by 'root'. Mutations are seperated by `.graph['splitter_mut']` and cells
-    are seperated by `.graph['splitter_cell']`. Those mutations that are not present
-    in any cell are stored in `.graph['become_germline']`. Mutations happed once
-    during the evolution so there is no repetitive mutation.
+    This function is a modification of https://github.com/faridrashidi/scphylo-tools/blob/main/scphylo/ul/_trees.py
+    and is primarily used to process HUNTRESS's output.
 
     Parameters
     ----------
-    df : :class:`pandas.DataFrame`
-        A genotype dataframe in which rows are cells and columns are mutations.
-        Note that this dataframe must be conflict-free.
+    df: pandas.DataFrame
+        A cell x mutation matrix from which a perfect phylogeny can be resolved via Gusfield's algorithm
 
     Returns
     -------
-    :class:`networkx.DiGraph`
-        A perfect phylogenetic tree.
+    networkx.DiGraph
+        A perfect phylogeny
     """
-    if not is_conflict_free_gusfield(df):
+    if not op.ul.is_conflict_free_gusfield(df):
         print("Matrix is not conflict free!")
 
     def _contains(col1, col2):
@@ -222,7 +218,12 @@ def matrix_to_clonal_tree(df):
     tree.graph["type"] = CONST.CLONAL_TREE
     tree.graph["cells"] = list(df.index.values)
     tree.graph["mutations"] = list(df.columns.values)
+
+    # these are just dummy values
+    tree.graph["gain_prefix"] = "+"
+    tree.graph["loss_prefix"] = "-"
     tree.graph["losses"] = []
+    tree.graph["gains"] = []
     
     matrix = df.values
     names_mut = list(df.columns)
@@ -239,7 +240,6 @@ def matrix_to_clonal_tree(df):
             j += 1
         i += 1
 
-    # rows = matrix.shape[0]
     cols = matrix.shape[1]
     dimensions = np.sum(matrix, axis=0)
     indices = np.argsort(dimensions)
@@ -296,7 +296,6 @@ def matrix_to_clonal_tree(df):
 
         tree.nodes[node]["label"] = clusters[node]
 
-    tree.graph["normal_cells"] = df[df.sum(axis=1) == 0].index
     tree.graph["root_id"] = cols
 
     i = 1
@@ -306,35 +305,20 @@ def matrix_to_clonal_tree(df):
             i += 1
     return tree
 
-def is_conflict_free_gusfield(df_in):
+def is_conflict_free_gusfield(df):
     """Check conflict-free criteria via Gusfield algorithm.
-
-    This is an implementation of algorithm 1.1 in :cite:`Gusfield_1991`.
-
-    The order of this algorithm is :math:`O(nm)`
-    where n is the number of cells and m is the number of mutations.
 
     Parameters
     ----------
-    df_in : :class:`pandas.DataFrame`
-        Input genotype matrix.
+    df: pd.DataFrame
+        A cell x mutation genotype matrix
 
     Returns
     -------
-    :obj:`bool`
-        A Boolean checking if the input conflict-free or not.
-
-    Examples
-    --------
-    >>> sc = scp.datasets.test()
-    >>> scp.ul.is_conflict_free_gusfield(sc)
-    False
-
-    See Also
-    --------
-    :func:`scphylo.ul.is_conflict_free`.
+    bool
+        True if the matrix is conflict free, False otherwise
     """
-    I_mtr = df_in.astype(int).values
+    I_mtr = df.astype(int).values
     if not np.array_equal(np.unique(I_mtr), [0, 1]):
         return False
 
@@ -364,56 +348,105 @@ def is_conflict_free_gusfield(df_in):
                     return False
     return True
 
+def clonal_to_cell_tree(T_clonal):
+    """Converts a clonal tree to a cell tree. 
+    
+    TODO:
+        This is working well, but there's some issue with how Networkx sets the node ID's.
+        This is more of a minor technical issue that can be reproduced by performing the following:
 
-def clonal_to_mutation_tree(tree):
-    """Converts a clonal tree to a mutation tree.
+            cell_tree = solution[op.ul.CONST.CELL_TREE]
+            clonal_tree = solution[op.ul.CONST.CLONAL_TREE]
+            cell_tree_duplicate = op.ul.clonal_to_cell_tree(clonal_tree)
+            clonal_tree_duplicate = op.ul.to_clonal_tree(cell_tree_duplicate)
+
+            nx.utils.graphs_equal(cell_tree, cell_tree_duplicate) # should be True, but returns False
+            nx.utils.graphs_equal(clonal_tree, clonal_tree_duplicate) # should be True, but returns False
+
+        This occurs only sometimes (with larger trees especially), and I believe it's because translating between
+        cell/clonal trees with these functions changes the numeric ID values for nodes. Consequently, nx.utils.graphs_equal 
+        will find that the .edges attributes are not the same, and therefore returns False.
+
+        However, I do not think this impacts comparing trees because the labels match exactly in all the tests I've done.
 
     Parameters
     ----------
-    tree : :class:`networkx.DiGraph`
-        The phylogenetic tree in which cells are in nodes and
-        mutations are at edges.
+    T_clonal: networkx.DiGraph
+        A clonal tree where nodes are labeled with cells and edges are labeled with mutations
 
     Returns
     -------
-    :class:`networkx.DiGraph`
-        The mutation tree in which mutations are in nodes.
+    networkx.DiGraph
+        A cell tree where 
     """
-    mutation_tree = nx.DiGraph()
-    mutation_tree.graph["type"] = CONST.CELL_TREE
-    for u, v, l in tree.edges.data("label"):
-        if tree.in_degree(u) == 0:
-            mutation_tree.add_node(u, label="root")
-        muts = l.split(tree.graph["splitter_mut"])
-        mutation_tree.add_node(v, label=muts)
-        mutation_tree.add_edge(u, v)
-    return mutation_tree
+    T_cell = nx.DiGraph()
+    T_cell.add_node("root", label="root")
+    T_cell.graph["type"] = CONST.CELL_TREE
+    
+    # copy all relevant data
+    T_cell.graph["losses"] = T_clonal.graph["losses"]
+    T_cell.graph["gains"] = T_clonal.graph["gains"]
+    T_cell.graph["cells"] = T_clonal.graph["cells"]
+    T_cell.graph["mutations"] = T_clonal.graph["mutations"] 
+    T_cell.graph["become_germline"] = T_clonal.graph["become_germline"]
+    T_cell.graph["data"] =  T_clonal.graph["data"] 
+    T_cell.graph["loss_prefix"] = T_clonal.graph["loss_prefix"]
+    T_cell.graph["gain_prefix"] = T_clonal.graph["gain_prefix"]
 
-    def _clonal_cell_mutation_list(tree):
-        muts_list = []
-        cells_list = []
-        for _, v, l in tree.edges.data("label"):
-            muts = l.split(tree.graph["splitter_mut"])
-            if "––" not in tree.nodes[v]["label"]:
-                cells = tree.nodes[v]["label"].split(tree.graph["splitter_cell"])
-                for mut in muts:
-                    muts_list.append({"mut": mut, "Node": f"[{v}]"})
-                for cell in cells:
-                    cells_list.append({"cell": cell, "Node": f"[{v}]"})
-            else:
-                for mut in muts:
-                    muts_list.append({"mut": mut, "Node": f"[{v}]"})
-        cells_list = pd.DataFrame(cells_list).set_index("cell")
-        muts_list = pd.DataFrame(muts_list).set_index("mut")
-        return cells_list, muts_list
+    # go through all of the edges
+    for u, v, l in T_clonal.edges.data("label"):
+        
+        # split apart all mutations on this edge
+        muts = l.split(T_clonal.graph["splitter_mut"])
+        
+        # base case where u is the root
+        if T_clonal.in_degree(u) == 0:
+            T_cell.add_node(muts[0], label=muts[0])
+            T_cell.add_edge("root", muts[0])
+                
+        # go through and add edges between mutations
+        last_mut = muts[0]
+        if last_mut not in T_cell.nodes:
+            T_cell.add_node(last_mut, label=last_mut)
+        
+        for _mut in muts[1:]:
+            T_cell.add_node(_mut, label=_mut)
+            T_cell.add_edge(last_mut, _mut)
+            last_mut = _mut
+           
+        # now attach all cells to last mutation
+        for cell in T_clonal.nodes[v]["label"].split(T_clonal.graph["splitter_cell"]):
+            if cell == "––":
+                continue
+            T_cell.add_node(cell, label=cell)
+            T_cell.add_edge(last_mut, cell)
+                
+        # find edges that are children of this edge (u,v) and add an edge from the last mutation on this edge 
+        # to the first mutation on all child edges
+        child_edges = nx.dfs_edges(T_clonal, source=v, depth_limit=1)
+        for (w,y) in child_edges:
+            l = T_clonal[w][y].get('label', None)
+            # go through each edge, and all an edge from the last mutation in the edge (u,v) to
+            # the first mutation on the edge e
+            first_mut = l.split(T_clonal.graph["splitter_mut"])[0]
+            T_cell.add_node(first_mut, label=first_mut)
+            T_cell.add_edge(last_mut, first_mut)
 
+    T_mut = T_cell.copy()
+    T_mut.graph["type"] = CONST.MUTATION_TREE
+    for cell in T_mut.graph["cells"]:
+        if cell in T_mut.nodes():
+            T_mut.remove_node(cell)
+                
+            
+    return T_cell, T_mut
 
 def root_id(tree):
     """Finds the root in a Networkx tree
     
     Inputs
     -------
-    tree : Networkx.DiGraph
+    tree: Networkx.DiGraph
         A mutation, cell, or clonal tree
 
     Returns

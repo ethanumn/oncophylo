@@ -2,8 +2,8 @@
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-LIB_DIR=$SCRIPT_DIR/oncophylo/lib
-BIN_DIR=$SCRIPT_DIR/oncophylo/bin
+LIB_DIR=$SCRIPT_DIR/../oncophylo/lib
+BIN_DIR=$SCRIPT_DIR/../oncophylo/bin
 
 # clean
 rm -rf $LIB_DIR 
@@ -24,6 +24,19 @@ echo "Cloning ConDoR"
 git clone https://github.com/raphael-group/ConDoR.git $LIB_DIR/ConDoR
 echo "INFO: to use ConDoR you'll need to have GurobiPy properly installed, 'pip install gurobipy', and have Gurobi setup on your system - https://www.gurobi.com/downloads/"
 
+echo "Cloning SPhyR"
+git clone https://github.com/elkebir-group/SPhyR.git $LIB_DIR/SPhyR
+echo "INFO: to use SPhyR you'll need to install CPLEX (https://www.ibm.com/products/ilog-cplex-optimization-studio)."
+echo "Once this is done, you can run the oncophylo/scripts/install_SPhyR.sh script to install LEMON and SPhyR."
+
+echo "Cloning SiFit"
+git clone https://github.com/KChen-lab/SiFit.git $LIB_DIR/SiFit
+mv $LIB_DIR/SiFit/SiFit.jar $BIN_DIR/SiFit.jar
+
+echo "Cloning HUNTRESS"
+git clone https://github.com/PASSIONLab/HUNTRESS.git $LIB_DIR/HUNTRESS
+
+# installation for MacOS
 if [ "$(uname)" == "Darwin" ]; then
 
     # install SCITE
@@ -36,7 +49,7 @@ if [ "$(uname)" == "Darwin" ]; then
     cd $LIB_DIR/infSCITE
     clang++ *.cpp -o $BIN_DIR/infSCITE   
 
-elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then # installation for Linux
 
     # install SCITE
     echo "Installing SCITE"

@@ -64,7 +64,7 @@ def matrix_error(B, B_input):
 
 def pairwise_rel_accuracy(T, T_true):
     """Pairwise relationship accuracy"""
-    assert T.graph["type"] == CONST.CLONAL_TREE and T.graph["type"] == CONST.CLONAL_TREE, "Input tree must be of type %s" % CONST.CLONAL_TREE
+    assert T.graph["type"] == CONST.CLONAL_TREE and T_true.graph["type"] == CONST.CLONAL_TREE, "Input tree must be of type %s" % CONST.CLONAL_TREE
 
     # get ancestral-descendant pairs
     ad_gt = get_ad(T_true)

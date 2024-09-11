@@ -1,10 +1,8 @@
 import numpy as np
 from kmodes.kmodes import KModes as KM
-from sklearn.metrics import silhouette_score
 
 def KModes(input_df, 
            columns, 
-           criterion="silhouette",
            k=None,
            kMin=2, 
            kMax=8,
@@ -19,7 +17,7 @@ def KModes(input_df,
     columns: list
         A list of column names to use for clustering
     criterion: str
-        The criterion used to determine which number of clusters to use. Default = "silhouette"
+        The criterion used to determine which number of clusters to use. Default = "BIC"
     k: int
         The number of clusters to find in the data. If None, a clustering will be searched for between
         sizes kMin and kMax. If defined, k clusters will be returned. This overrides kMin and kMax.
@@ -42,12 +40,12 @@ def KModes(input_df,
         A list of clusterings. If k is defined, then it will only contain a single clustering. Otherwise,
         kMax - kMin clusterings will be returned.
     list
-        A list of scores for each clustering. The scores are determined using the criterion provided.
+        A list of costs for each clustering. The costs are determined using the criterion provided.
     """
 
     # lists to return
     clusterings = []
-    scores = []
+    costs = []
     
     # extract data for clustering
     X = input_df[columns].values
@@ -63,12 +61,12 @@ def KModes(input_df,
         labels = km.fit_predict(X) 
         clusters = [np.flatnonzero(labels == num) for num in np.unique(labels)]
         clusterings.append(clusters)
-        scores.append(silhouette_score(X, labels))
+        costs.append(km.cost_)
     
     # return only the best 
     if return_best:
-        clusterings = [clusterings[np.argmax(scores)]]
-        scores = [scores[np.argmax(scores)]]
+        clusterings = [clusterings[np.argmin(costs)]]
+        costs = [costs[np.argmin(costs)]]
 
-    return clusterings, scores
+    return clusterings, costs
         

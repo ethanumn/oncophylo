@@ -107,15 +107,16 @@ def load_dot(fn,
         T.graph["mutations"] = mutations
     if "losses" not in T.graph and len(loss_prefix) > 0:
         T.graph["loss_prefix"] = loss_prefix
-        T.graph["losses"] = list(filter(lambda x: x.startswith(loss_prefix), T.nodes()))
+        T.graph["losses"] = sorted(filter(lambda x: x.startswith(loss_prefix), T.nodes()))
     if "gains" not in T.graph and len(gain_prefix) > 0:
         T.graph["gain_prefix"] = gain_prefix
-        T.graph["gains"] = list(filter(lambda x: x.startswith(gain_prefix), T.nodes()))
+        T.graph["gains"] = sorted(filter(lambda x: x.startswith(gain_prefix), T.nodes()))
         
     T_prime = None
     # mutation tree is recovered by removing all cells
     if _type == CONST.CELL_TREE:
         T_prime = T.copy()
+        T_prime.graph["type"] = CONST.MUTATION_TREE
         for cell in T_prime.graph["cells"]:
             if cell in T_prime.nodes():
                 T_prime.remove_node(cell)

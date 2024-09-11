@@ -48,7 +48,7 @@ def script_path(library, script_name):
     else:
         print(f"Cannot locate script at {ex}")
 
-def subprocess(call):
+def subprocess(call, stdout=None):
     """
     Input
     ------
@@ -63,7 +63,11 @@ def subprocess(call):
         The run time, in seconds, the executable took to complete
     """
     start = perf_counter()
-    res = sp.run(call, capture_output = True)
+    res = None
+    if stdout == None:
+        res = sp.run(call, capture_output=True)
+    else:
+        sp.run(call, stdout=stdout)
     end = perf_counter()
 
     return res, end-start
@@ -75,7 +79,8 @@ def solution(T_cell,
              fp,
              fn,
              output,
-             time):
+             time,
+             T_clonal=None):
     """Returns a dictionary with all of the outputs and performance metrics for a solve
     
     Input
@@ -96,9 +101,12 @@ def solution(T_cell,
         The subprocess output (i.e., the terminal output)
     time: float
         The amount of time in seconds it took for the subprocess to complete
+    T_clonal: Networkx.DiGraph, optional
+        A clonal tree where nodes are groups of cells and edges are groups of mutations.
+        Some methods output a clonal tree, so providing this will make it so a a clonal tree isn't computed.
     """
     return {op.ul.CONST.CELL_TREE: T_cell, 
-            op.ul.CONST.CLONAL_TREE:op.ul.to_clonal_tree(T_cell, output_df),
+            op.ul.CONST.CLONAL_TREE: op.ul.to_clonal_tree(T_cell, output_df) if T_clonal is None else T_clonal,
             op.ul.CONST.MUTATION_TREE:T_mut,
             op.ul.CONST.PRED_DATA: output_df,
             op.ul.CONST.RUNTIME:time,

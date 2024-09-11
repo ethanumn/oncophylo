@@ -1,7 +1,6 @@
-# SPhyR.py
-
-from time import perf_counter
-import subprocess
+# SPhyR 
+import shutil, os
+import oncophylo as op 
 
 def SPhyR(input_df, 
           k=0, 
@@ -57,7 +56,7 @@ def SPhyR(input_df,
 
     n, m = input_df.shape
     
-    
+    # replace 3 with -1
     input_df.replace(3, -1).to_csv(input_fn, sep=" ", index=False, header=False)
     
     # write first two lines to tell SPhyR how many mutations/cells there are
@@ -81,11 +80,11 @@ def SPhyR(input_df,
             "-s", "%d" % seed 
     ]
 
-    # capture runtime for subprocess
+    # capture output from SPhyR
     f = open(output_fn, "w")
-    start = perf_counter()
-    res = subprocess.run([os.path.join(os.path.abspath(""), "../eval/SPhyR/build/kDPFC")] + args, stdout=f)
-    end = perf_counter()
+
+    # run SPhyR
+    output, time = op.ul.subprocess([op.ul.binary_path("kDPFC")] + args, stdout=f)
     f.close()
     
     args = ["%s" % output_fn,
@@ -93,8 +92,9 @@ def SPhyR(input_df,
             "-t", "%s" % cell_names_fn
     ]
     
+    # write dot file
     f = open(dot_fn, "w")
-    subprocess.run([os.path.join(os.path.abspath(""), "../eval/SPhyR/build/visualize")] + args, stdout=f)
+    op.ul.subprocess([op.ul.binary_path("visualize")] + args, stdout=f)
     f.close() 
     
     # prepare output dataframe

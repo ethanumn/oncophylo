@@ -1,4 +1,4 @@
-# SCITE.py
+# SCITE 
 import shutil, os
 import oncophylo as op 
 
