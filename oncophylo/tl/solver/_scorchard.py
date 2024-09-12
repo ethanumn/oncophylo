@@ -5,6 +5,8 @@ import numpy as np
 import oncophylo as op 
 
 def scOrchard(input_df, 
+              variant_reads_df=None,
+              total_reads_df=None,
               k=10, 
               e=10, 
               fp=0.001, 
@@ -66,6 +68,8 @@ def scOrchard(input_df,
     if not os.path.exists(temp_path):
         os.mkdir(temp_path)
     input_fn = os.path.join(temp_path, "input.txt")
+    variant_reads_fn = os.path.join(temp_path, "variant_reads.csv")
+    total_reads_fn = os.path.join(temp_path, "total_reads.csv")
     cell_names_fn = os.path.join(temp_path, "cell_names.txt")
     gene_names_fn = os.path.join(temp_path, "gene_names.txt")
     clusters_fn = os.path.join(temp_path, "clusters.txt")
@@ -97,6 +101,12 @@ def scOrchard(input_df,
     input_df.index.to_series().to_csv(cell_names_fn, index=False, header=False)
     input_df.columns.to_series().to_csv(gene_names_fn, index=False, header=False)
 
+    if variant_reads_df is not None and total_reads_df is not None:
+        assert variant_reads_df.shape == input_df.shape, "variant read count matrix and character matrix shape mismatch!"
+        assert total_reads_df.shape == input_df.shape, "variant read count matrix and character matrix shape mismatch!"
+        variant_reads_df.to_csv(variant_reads_fn)
+        total_reads_df.to_csv(total_reads_fn)
+
     n, m = input_df.shape
     
     # process minCellsL and minCellsG
@@ -122,6 +132,8 @@ def scOrchard(input_df,
             "-c", "%s" % cell_names_fn,
             "-fd", "%.6f" % fp,
             "-ad", "%.6f" % fn,
+            "-v", "%s" % variant_reads_fn if variant_reads_df is not None else "",
+            "-t", "%s" % total_reads_fn if total_reads_df is not None else "",
             "-seed", "%d" % seed if seed is not None else "",
             "-greedy" if greedy else "",
             "-homoplasyOnly" if homoplasy_only else "",
