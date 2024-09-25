@@ -13,8 +13,10 @@ def scOrchard(input_df,
               fn=0.2, 
               K=0,
               R=0,
+              ado_precision=15.0,
               minCellsL=1,
               minCellsG=1,
+              mcmc_iterations=0,
               seed=None, 
               homoplasy_only=False,
               only_add_leaves=False,
@@ -38,25 +40,29 @@ def scOrchard(input_df,
     fn: float
         The false negative rate to use for likelihood calculations
     K: int
-        The maximum number of losses per mutation to consider. Default = 0
+        The maximum number of losses per mutation to consider (Default = 0)
     R: int
-        The maximum number of gains per mutation to consider. Default = 0
+        The maximum number of gains per mutation to consider (Default = 0)
+    ado_precision: float
+        The allelic dropout precision for the beta binomial likelihood model. This is only used if read counts are provided.
     minCellsL: int
         The minimum number of cells that benefit from a mutation loss in order to consider the loss. 
         Can be a whole number or a percentage.
     minCellsG: int
         The minimum number of cells that benefit from a mutation gain in order to consider the gain.
         Can be a whole number or a percentage.
+    mcmc_iterations: int, optional
+        The number of MCMC iterations to perform for each sampled tree (Default = 0)
     seed: int
         The random seed to use
     greedy: bool
-        Flag to run scOrchard in its greedy search mode. Default = False
+        Flag to run scOrchard in its greedy search mode. (Default = False)
     homoplasy_only: bool
-        Flag to only consider mutation gains due to homoplasy. Default = False
+        Flag to only consider mutation gains due to homoplasy. (Default = False)
     n_solutions: int
-        The number of solutions to return. Default = 1
+        The number of solutions to return (Default = 1)
     remove_temp_dir: bool
-        Flag to remove the temporary directory used to store scOrchard's input/output files. Default = True
+        Flag to remove the temporary directory used to store scOrchard's input/output files (Default = True)
 
     Returns
     --------
@@ -121,8 +127,10 @@ def scOrchard(input_df,
             "-e", "%d" % e,
             "-K", "%d" % K,
             "-R", "%d" % R,
+            "-precision", "%.2f" % ado_precision,
             "-minCellsL", "%d" % minCellsL,
             "-minCellsG", "%d" % minCellsG,
+            "-mcmcIterations", "%d" % mcmc_iterations,
             "-n", "%d" % n,
             "-m", "%d" % m,
             "-i", "%s" % input_fn,
@@ -161,7 +169,10 @@ def scOrchard(input_df,
                                         fp,
                                         fn,
                                         output,
-                                        time))
+                                        time,
+                                        var_reads=variant_reads_df,
+                                        total_reads=total_reads_df,
+                                        ado_precision=ado_precision))
     if remove_temp_dir:
         shutil.rmtree(temp_path)
     if n_solutions == 1:

@@ -74,14 +74,18 @@ def subprocess(call, stdout=None):
 
 def solution(T_cell, 
              T_mut, 
-             input_df,
+             character_matrix,
              output_df, 
              fp,
              fn,
              output,
              time,
-             T_clonal=None):
-    """Returns a dictionary with all of the outputs and performance metrics for a solve
+             T_clonal=None,
+             var_reads=None,
+             total_reads=None,
+             ado_precision=None):
+    """Returns a dictionary with all of the outputs and performance metrics for a solution. Depending on which inputs are provided,
+    different measurements will available in the dictionary return by this function.
     
     Input
     ------
@@ -93,7 +97,7 @@ def solution(T_cell,
         The false positive rate for scoring the character matrix
     fn: float
         The false negative rate for scoring the character matrix
-    input_df: pd.DataFrame
+    character_matrix: pd.DataFrame
         The character matrx input the algorithm
     output_df: pd.DataFrame
         The predicted character matrix
@@ -104,12 +108,19 @@ def solution(T_cell,
     T_clonal: Networkx.DiGraph, optional
         A clonal tree where nodes are groups of cells and edges are groups of mutations.
         Some methods output a clonal tree, so providing this will make it so a a clonal tree isn't computed.
+    var_reads: pd.DataFrame, optional
+        A cell by mutation matrix of variant read counts 
+    total_reads: pd.DataFrame, optional
+        A cell by mutation matrix of total read counts 
+    ado_precision: float, optional
+        The allelic dropout precision parameter. This (along with the var_reads and total_reads) is used to calculated the likelihood of the tree under a beta binomial model.
     """
     return {op.ul.CONST.CELL_TREE: T_cell, 
             op.ul.CONST.CLONAL_TREE: op.ul.to_clonal_tree(T_cell, output_df) if T_clonal is None else T_clonal,
             op.ul.CONST.MUTATION_TREE:T_mut,
             op.ul.CONST.PRED_DATA: output_df,
             op.ul.CONST.RUNTIME:time,
-            op.ul.CONST.MATRIX_ERROR: op.tl.score.matrix_error(output_df, input_df),
-            op.ul.CONST.LLH: op.tl.score.score_genotypes(output_df, input_df, fp, fn),
+            op.ul.CONST.MATRIX_ERROR: op.tl.score.matrix_error(output_df, character_matrix),
+            op.ul.CONST.LLH_OE: op.tl.score.score_observation_errors(output_df, character_matrix, fp, fn),
+            op.ul.CONST.LLH_BB: op.tl.score.score_beta_binomial(output_df, var_reads, total_reads, ado_precision, fp),
             op.ul.CONST.TERMINAL_OUTPUT:output}

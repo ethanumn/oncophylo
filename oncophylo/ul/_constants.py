@@ -49,7 +49,8 @@ class CONST:
     FPR: str = "false_positive_rate"
     FNR: str = "false_negative_rate"
     MISSING_RATE: str = "missing_rate"
-    LLH: str = "log_likelihood"
+    LLH_OE: str = "log_likelihood_observation_errors"
+    LLH_BB: str = "log_likelihood_beta_binomial"
     MATRIX_ERROR: str = "matrix_error"
     REQUIRES_CLUSTERS: str = "requires_clusters"
         

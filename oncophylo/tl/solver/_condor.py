@@ -10,7 +10,7 @@ def ConDoR(input_df,
            k=0, 
            fp=0.001, 
            fn=0.1, 
-           ado=15,
+           ado_precision=15,
            remove_temp_dir = True):
     
     """Python wrapper for ConDoR
@@ -30,7 +30,7 @@ def ConDoR(input_df,
         The false positive rate. Default = 0.001
     fn: float, optional
         The false negative rate. Default = 0.1 
-    ado: int, optional
+    ado_precision: int, optional
         The precision parameter for the beta distribution modeling allelic dropout. Default = 15
     remove_temp_dir: bool, optional
         Flag which when true removes the temporary directory that contains the output files. Default = True
@@ -66,7 +66,7 @@ def ConDoR(input_df,
             "-k", "%d" % k,
             "-a", "%.6f" % fp,
             "-b", "%.6f" % fn,
-            "--ado", "%d" % ado,
+            "--ado", "%d" % ado_precision,
             "-o", "%s" % output_fn
     ]
 
@@ -96,13 +96,16 @@ def ConDoR(input_df,
                                    _type="cell_tree",
                                    set_id_to_label = True)    
 
-    solution  = op.ul.solution(T_cell, 
-                               T_mut, 
-                               input_df,
-                               output_df, 
-                               fp,
-                               fn,
-                               output,
-                               time)
+    solution = op.ul.solution(T_cell, 
+                              T_mut, 
+                              input_df,
+                              output_df, 
+                              fp,
+                              fn,
+                              output,
+                              time,
+                              var_reads=alt_reads_df,
+                              total_reads=total_reads_df,
+                              ado_precision=ado_precision)
     
     return solution

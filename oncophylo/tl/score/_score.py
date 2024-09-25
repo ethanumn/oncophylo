@@ -2,41 +2,186 @@ import pandas as pd
 import networkx as nx 
 import numpy as np 
 from itertools import combinations 
+from scipy.stats import betabinom
 
 import oncophylo as op 
 from oncophylo.ul import CONST
 
-def score_genotypes(B, B_input, fp, fn):
-    """Scores a binary genotype matrix given the groun truth genotypes, 
-    false positive rate, and false negative rate"""
+def _score_beta_binomial(B, var_reads, total_reads, ado_precision, fp):
+    """Scores a genotype matrix under a beta binomial model
+    
+    Parameters
+    ----------
+    B: numpy.ndarray
+        A predicted binary matrix where rows are cells and columns are mutations.
+    var_reads: pandas.DataFrame, optional
+        A cell by mutation matrix of variant read counts
+    total_reads: pandas.DataFrame, optional
+        A cell by mutation matrix of total read counts
+    ado_precision: float, optional
+        The allelic dropout precision parameter used to calculate the beta binomial likelihood
+    fp: float
+        The estimated false positive rate
+
+    Returns
+    --------
+    float
+        The log likelihood of the predicted matrix B under the beta binomial model
+    """
+    llh = 0
+    
+    alpha_present = 1
+    beta_present = 1
+    alpha_absent = fp*ado_precision
+    beta_absent = (1-fp)*ado_precision 
+    n,m = B.shape
+    for i in range(n):
+        for j in range(m):
+            if B[i,j] == 1:
+                llh += betabinom.logpmf(var_reads[i,j], total_reads[i,j], alpha_present, beta_present)
+            elif B[i,j] == 0:
+                llh += betabinom.logpmf(var_reads[i,j], total_reads[i,j], alpha_absent, beta_absent)
+    return llh
+
+def _score_observation_errors(B, B_input, fp, fn):
+    """Scores a genotype matrix based on the observed genotypes and the estimate false positive and false negative rates
+    
+    Parameters
+    ----------
+    B: numpy.ndarray
+        A predicted binary matrix where rows are cells and columns are mutations.
+    B_input: np.ndarray
+        An observed binary matrix where rows are cells and columns are mutations. This matrix can have unknown or missing values (e.g., -1 or 3)
+    fp: float
+        The estimated false positive rate
+    fn: float
+        The estimated false negative rate
+
+    Returns
+    --------
+    float
+        The log likelihood of the predicted matrix B under the estimated observation error rates
+    """
+
+    llh = np.sum((B == 1) & (B_input == 1)) * np.log(1-fn) + \
+          np.sum((B == 0) & (B_input == 0)) * np.log(1-fp) + \
+          np.sum((B == 1) & (B_input == 0)) * np.log(fn) + \
+          np.sum((B == 0) & (B_input == 1)) * np.log(fp)
+
+    return llh
+
+
+def score_observation_errors(B, B_input, fp, fn):
+    """  
+    Scores a genotype matrix using either observational error model from https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0936-x
+
+    Parameters
+    ----------
+    B: numpy.ndarray
+        A predicted binary matrix where rows are cells and columns are mutations.
+    B_input: np.ndarray
+        An observed binary matrix where rows are cells and columns are mutations. This matrix can have unknown or missing values (e.g., -1 or 3)
+    fp: float
+        The estimated false positive rate
+    fn: float
+        The estimated false negative rate
+
+    Returns
+    --------
+    float
+        The log likelihood of the predicted genotypes
+    """
+
     _B = B
     _B_input = B_input
     
     # process inputs
-    if isinstance(B, pd.DataFrame):
+    if isinstance(_B, pd.DataFrame):
         if CONST.CLUSTER_ID in list(_B.columns):
             _B = _B.drop(columns=CONST.CLUSTER_ID)
-        _B = B.values
+        B_values = _B.values
+    elif isinstance(_B, np.ndarray):
+        B_values = _B
+    else:
+        print("Cannot compute beta binomial likelihood of genotypes. Predicted genotypes must be either a pandas.DataFrame or numpy.ndarray. Aborting!")
+        return 
 
     if isinstance(_B_input, pd.DataFrame):
         if CONST.CLUSTER_ID in list(_B_input.columns):
             _B_input = _B_input.drop(columns=CONST.CLUSTER_ID)
-        _B_input = _B_input.values
-        
+        B_input_values = _B_input.values
+    elif isinstance(_B_input, np.ndarray):
+        B_input_values = _B_input
+    else:
+        print("Cannot compute beta binomial likelihood of genotypes. Observed genotypes must be either a pandas.DataFrame or numpy.ndarray. Aborting!")
+        return 
 
     assert _B.shape == _B_input.shape, \
                 "Genotype matrices must be same shape! Received (%d,%d), expected (%d,%d)." % (_B.shape[0], 
                                                                                                _B.shape[1], 
                                                                                                _B_input.shape[0], 
                                                                                                _B_input.shape[1])
-    llh = np.sum((_B == 1) & (_B_input == 1)) * np.log(1-fn) + \
-          np.sum((_B == 0) & (_B_input == 0)) * np.log(1-fp) + \
-          np.sum((_B == 1) & (_B_input == 0)) * np.log(fn) + \
-          np.sum((_B == 0) & (_B_input == 1)) * np.log(fp)
-    
-    return llh
 
-    from itertools import combinations
+    return _score_observation_errors(B_values, B_input_values, fp, fn)
+
+
+def score_beta_binomial(B, var_reads, total_reads, ado_precision, fp):
+    """  
+    Scores a genotype matrix using the beta binomial likelihood from https://genomebiology.biomedcentral.com/articles/10.1186/s13059-023-03106-5
+
+    Parameters
+    ----------
+    B: numpy.ndarray
+        A predicted binary matrix where rows are cells and columns are mutations.
+    var_reads: pandas.DataFrame, optional
+        A cell by mutation matrix of variant read counts
+    total_reads: pandas.DataFrame, optional
+        A cell by mutation matrix of total read counts
+    ado_precision: float, optional
+        The allelic dropout precision parameter used to calculate the beta binomial likelihood
+    fp: float
+
+    Returns
+    --------
+    float
+        The log likelihood of the predicted genotypes
+    """
+
+    # base case
+    if (var_reads is None) or (total_reads is None) or (ado_precision is None):
+        return np.nan 
+
+    _B = B
+    
+    # process inputs
+    if isinstance(_B, pd.DataFrame):
+        if CONST.CLUSTER_ID in list(_B.columns):
+            _B = _B.drop(columns=CONST.CLUSTER_ID)
+        B_values = _B.values
+    elif isinstance(B, np.ndarray):
+        B_values = _B
+    else:
+        print("Cannot compute beta binomial likelihood of genotypes. Predicted genotypes must be either a pandas.DataFrame or numpy.ndarray. Aborting!")
+        return 
+
+    assert isinstance(ado_precision, float) or isinstance(ado_precision, int), "ado_precision must be a float or int, not %s" % type(ado_precision) 
+    assert ado_precision > 0, "ado_precision must be non-negative"
+    assert var_reads.shape == total_reads.shape, "var_reads and total_reads shapes do not match!"
+
+    if isinstance(var_reads, pd.DataFrame) and isinstance(total_reads, pd.DataFrame):
+        assert np.all(var_reads.columns == total_reads.columns) and np.all(var_reads.index == total_reads.index), "Columns and indices of var_reads do not match total_reads!"
+        assert np.all(var_reads.columns == _B.columns) and np.all(var_reads.index == _B.index),  "Columns and indices of var_reads/total_reads do not match the character matrix!"
+        var_reads_values = var_reads.values 
+        total_reads_values = total_reads.values 
+    elif isinstance(var_reads, np.ndarray) and isinstance(total_reads, pd.ndarray):
+        var_reads_values = var_reads 
+        total_reads_values = total_reads
+    else:
+        print("Types of var_reads and total_reads must both be either pandas.DataFrame or numpy.ndarray. Aborting!")
+        return np.nan
+
+    return _score_beta_binomial(B_values, var_reads_values, total_reads_values, ado_precision, fp)
+
 
 def matrix_error(B, B_input):
     """Computes the matrix error metric  
@@ -50,15 +195,15 @@ def matrix_error(B, B_input):
     if isinstance(_B, pd.DataFrame):
         if CONST.CLUSTER_ID in list(_B.columns):
             _B = _B.drop(columns=CONST.CLUSTER_ID)
-        _B = _B.values
+        B_values = _B.values
 
     if isinstance(_B_input, pd.DataFrame):
         if CONST.CLUSTER_ID in list(_B_input.columns):
             _B_input = _B_input.drop(columns=CONST.CLUSTER_ID)
-        _B_input = _B_input.values
+        B_input_values = _B_input.values
     
-    diff = np.abs(_B - _B_input)
-    observed = ((_B == 0) | (_B == 1)) & ((_B_input == 0) | (_B_input == 1))
+    diff = np.abs(B_values - B_input_values)
+    observed = ((B_values == 0) | (B_values == 1)) & ((B_input_values == 0) | (B_input_values == 1))
     
     return np.sum(diff[observed]) / np.sum(observed)
 
