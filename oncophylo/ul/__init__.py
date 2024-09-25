@@ -11,7 +11,7 @@ from oncophylo.ul._constants import CONST, EVAL_KEYS, SIM_KEYS, mutation_types
 from oncophylo.ul._loss import find_loss_pairs
 from oncophylo.ul._trees import resolve_genotypes, to_clonal_tree, conflict_free_matrix_to_clonal_tree, is_conflict_free_gusfield, root_id, clonal_to_cell_tree
 from oncophylo.ul._utils import binary_path, script_path, subprocess, solution
-
+from oncophylo.ul._lt_utils import load_lineage_tracing_file, to_binary_df, prep_lineage_tracing_data, post_process_celltree
 
 
 __all__ = (
@@ -35,6 +35,12 @@ __all__ = (
            is_conflict_free_gusfield, 
            root_id,
 
+           # lineage tracing (THIS SHOULD GO SOMEWHERE ELSE AT SOME POINT)
+           load_lineage_tracing_file,
+           to_binary_df,
+           prep_lineage_tracing_data,
+           post_process_celltree,
+          
            # exectables
            binary_path,
            script_path,

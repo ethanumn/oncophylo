@@ -6,5 +6,6 @@ from oncophylo.tl.solver._infscite import infSCITE
 from oncophylo.tl.solver._scorchard import scOrchard
 from oncophylo.tl.solver._sphyr import SPhyR
 from oncophylo.tl.solver._huntress import HUNTRESS
+from oncophylo.tl.solver._ltorchard import ltOrchard
 
-__all__ = (ConDoR, HUNTRESS, infSCITE, SCITE, scOrchard, SPhyR)
+__all__ = (ConDoR, HUNTRESS, infSCITE, ltOrchard, SCITE, scOrchard, SPhyR)

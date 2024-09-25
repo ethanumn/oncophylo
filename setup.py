@@ -19,9 +19,21 @@ class InstallGitHubDependencies(setuptools_install):
 setup(
     name='OncoPhylo',
     version='0.1',
+    description = "A package to perform cancer phylogeny reconstruction.",
+    python_requires = ">=3.8",
     packages=find_packages(),
     include_package_data=True,
     cmdclass={
         'install': InstallGitHubDependencies,
-    }
+    },
+    install_requires=[
+            "setuptools>=61.0", 
+            "numpy>=1.21.0",
+            "pandas>=2.0",
+            "scipy>=1.1.0", 
+            "kmodes>=0.12", 
+            "networkx>=3.0",
+            "pydot>=2.0",
+            "gurobipy"
+    ]
 )
