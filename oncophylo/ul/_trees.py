@@ -3,7 +3,7 @@ import pandas as pd
 import networkx as nx 
 
 import oncophylo as op
-from oncophylo.ul import CONST 
+from oncophylo.ul import DATA 
 
 def resolve_genotypes(T, input_df=None):
     """Resolves genotypes given a cell tree
@@ -25,7 +25,7 @@ def resolve_genotypes(T, input_df=None):
         A pandas dataframe containing the genotypes for each cell implied by the input tree T. The index/column names of this matrix 
         will be the same as input_df.
     """
-    assert T.graph["type"] == CONST.CELL_TREE, "Tree must be of type %s not %s" % (CONST.CELL_TREE, T.graph["type"])
+    assert T.graph["type"] == DATA.CELL_TREE, "Tree must be of type %s not %s" % (DATA.CELL_TREE, T.graph["type"])
     
     if isinstance(input_df, pd.DataFrame):
         output_df = input_df.copy()
@@ -97,7 +97,7 @@ def to_clonal_tree(T, df):
     tree.graph["splitter_mut"] = "\n"
     tree.graph["splitter_cell"] = "\n"
     tree.graph["become_germline"] = list(df.columns[(df == 0).all(axis=0)])
-    tree.graph["type"] = CONST.CLONAL_TREE
+    tree.graph["type"] = DATA.CLONAL_TREE
     node_id = 0
     
     # store list of cells and nodes for future reference
@@ -215,7 +215,7 @@ def conflict_free_matrix_to_clonal_tree(df):
     tree.graph["splitter_mut"] = "\n"
     tree.graph["splitter_cell"] = "\n"
     tree.graph["become_germline"] = list(df.columns[(df == 0).all(axis=0)])
-    tree.graph["type"] = CONST.CLONAL_TREE
+    tree.graph["type"] = DATA.CLONAL_TREE
     tree.graph["cells"] = list(df.index.values)
     tree.graph["mutations"] = list(df.columns.values)
 
@@ -355,8 +355,8 @@ def clonal_to_cell_tree(T_clonal):
         This is working well, but there's some issue with how Networkx sets the node ID's.
         This is more of a minor technical issue that can be reproduced by performing the following:
 
-            cell_tree = solution[op.ul.CONST.CELL_TREE]
-            clonal_tree = solution[op.ul.CONST.CLONAL_TREE]
+            cell_tree = solution[op.ul.DATA.CELL_TREE]
+            clonal_tree = solution[op.ul.DATA.CLONAL_TREE]
             cell_tree_duplicate = op.ul.clonal_to_cell_tree(clonal_tree)
             clonal_tree_duplicate = op.ul.to_clonal_tree(cell_tree_duplicate)
 
@@ -381,7 +381,7 @@ def clonal_to_cell_tree(T_clonal):
     """
     T_cell = nx.DiGraph()
     T_cell.add_node("root", label="root")
-    T_cell.graph["type"] = CONST.CELL_TREE
+    T_cell.graph["type"] = DATA.CELL_TREE
     
     # copy all relevant data
     T_cell.graph["losses"] = T_clonal.graph["losses"]
@@ -433,7 +433,7 @@ def clonal_to_cell_tree(T_clonal):
             T_cell.add_edge(last_mut, first_mut)
 
     T_mut = T_cell.copy()
-    T_mut.graph["type"] = CONST.MUTATION_TREE
+    T_mut.graph["type"] = DATA.MUTATION_TREE
     for cell in T_mut.graph["cells"]:
         if cell in T_mut.nodes():
             T_mut.remove_node(cell)

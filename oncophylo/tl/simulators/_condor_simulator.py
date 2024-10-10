@@ -3,36 +3,13 @@ import pandas as pd
 import numpy as np
 from scipy.stats import betabinom
 import networkx as nx
+import anndata as ad
 
-import oncophylo as op
+import oncophylo as op 
 
-def tree_to_newick(T, root=None):
-    if root is None:
-        roots = list(filter(lambda p: p[1] == 0, T.in_degree()))
-        assert 1 == len(roots)
-        root = roots[0][0]
-    subgs = []
-    while len(T[root]) == 1:
-        root = list(T[root])[0]
-    for child in T[root]:
-        while len(T[child]) == 1:
-            child = list(T[child])[0]
-        if len(T[child]) > 0:
-            child_newick = tree_to_newick(T, root=child)
-            if child_newick != '()':
-                subgs.append(child_newick)
-        else:
-            if child.startswith('s'):
-                subgs.append(child)
-
-    if len(subgs) == 1:
-        return str(subgs[0])
-    else:
-        return "(" + ','.join(map(str, subgs)) + ")"    
-
-def simulate(n_cells = 5,
-             n_mutations = 5,
-             n_clusters = 1,
+def simulate(num_cells = 25,
+             num_mutations = 25,
+             num_clusters = 1,
              max_losses = 0,
              seed = 0,
              missing_rate = 0.0,
@@ -44,20 +21,18 @@ def simulate(n_cells = 5,
              vaf_threshold = 0.1,
              mutation_rate = 0.2,
              prefix = "",
-             save_path = "",
-             return_cntree = False,
-             return_reads = False):
+             save_path = ""):
     """This is a modified version of ConDoR's simulation framework 
     (https://github.com/raphael-group/ConDoR/blob/main/src/simulation_reads.py).
     This simulator will generate trees with losses that occur due to copy number loss. 
     
     Parameters
     -----------
-    n_cells: int
+    num_cells: int
         The number of cells in the simulation
-    n_mutations: int
+    num_mutations: int
         The number of mutations in the simulation
-    n_clusters: int
+    num_clusters: int
         The number of clusters in the simulation
     n_loss_per_character: int
         The number of losses per mutation in the simulation
@@ -83,10 +58,6 @@ def simulate(n_cells = 5,
         The prefix to give the simulation data when saving the file
     save_path: string
         The path to save the simulation data to
-    return_cntree: bool, optional
-        Flag to return the copy number tree (Default = False)
-    return_reads: bool, optional
-        Flag to return the simulated read counts (Default = False)
     
     Returns
     --------
@@ -124,28 +95,28 @@ def simulate(n_cells = 5,
     Tc.graph["root_name"] = "root"
     
     # set types
-    T.graph["type"] = op.ul.CONST.MUTATION_TREE
-    Tc.graph["type"] = op.ul.CONST.CN_TREE
+    T.graph["type"] = op.ul.DATA.MUTATION_TREE
+    Tc.graph["type"] = op.ul.DATA.CN_TREE
     T.graph["root_id"] = 0
     T.graph["root_name"] = "root"
     T.graph["loss_prefix"] = "-"
     T.graph["gain_prefix"] = "+"
     
-    character_list = [f'm{character_index}' for character_index in range(n_mutations)]
+    character_list = [f'm{character_index}' for character_index in range(num_mutations)]
     T.graph["mutations"] = character_list
-    cluster_list = [f'{T.graph["loss_prefix"]}m{cluster_index}' for cluster_index in range(1, n_clusters)]
+    cluster_list = [f'{T.graph["loss_prefix"]}m{cluster_index}' for cluster_index in range(1, num_clusters)]
     event_order = np.random.permutation(character_list + cluster_list).tolist()
 
-    loss_counter = np.zeros((n_mutations, 1))
-    loss_dictionary = {f'{T.graph["loss_prefix"]}m{cluster_index}': [] for cluster_index in range(1, n_clusters)}
+    loss_counter = np.zeros((num_mutations, 1))
+    loss_dictionary = {f'{T.graph["loss_prefix"]}m{cluster_index}': [] for cluster_index in range(1, num_clusters)}
     losses = []
     
     # ground truth 
-    B = np.zeros((n_mutations + n_clusters, n_mutations + 1), dtype=int)
+    B = np.zeros((num_mutations + num_clusters, num_mutations + 1), dtype=int)
     
     # number of copies of each allele in each cell
-    R = np.zeros((n_clusters, n_mutations), dtype=int)    
-    R[0, :] = np.random.randint(max_cn - max_losses - 1, size = n_mutations) + max_losses + 1
+    R = np.zeros((num_clusters, num_mutations), dtype=int)    
+    R[0, :] = np.random.randint(max_cn - max_losses - 1, size = num_mutations) + max_losses + 1
         
     # add losses 
     for node_index, event in enumerate(event_order):
@@ -178,7 +149,7 @@ def simulate(n_cells = 5,
             Tc.add_edge(parent_cluster_id, cluster_id)
             R[cluster_id, :] = R[parent_cluster_id, :]
 
-            for mutation in range(n_mutations):
+            for mutation in range(num_mutations):
                 if B[parent_node_index, mutation] == 1 and loss_counter[mutation] < max_losses:
                     if np.random.rand() < (1 - mutation_rate):
                         B[node_index, mutation] = loss_counter[mutation] + 2
@@ -191,9 +162,9 @@ def simulate(n_cells = 5,
             B[node_index, mutation] = 1
 
     # randomize the number of copies of each allele for the mutations not impacted by copy-losses
-    for mutation in range(n_mutations):
+    for mutation in range(num_mutations):
         if loss_counter[mutation] == 0:
-            for cluster_id in range(n_clusters):
+            for cluster_id in range(num_clusters):
                 R[cluster_id, mutation] = np.random.randint(max_cn - 1) + 1
 
     # check that all copy number states are non-zero positive
@@ -211,29 +182,29 @@ def simulate(n_cells = 5,
             leaf_indices.append(idx)    
     nleaves = len(leaf_indices)
     
-    assert(n_cells > n_clusters)
-    cell_assignment = np.random.randint(n_mutations, size=n_cells-nleaves)
+    assert(num_cells > num_clusters)
+    cell_assignment = np.random.randint(num_mutations, size=num_cells-nleaves)
     complete_cell_assignment = list(cell_assignment) + leaf_indices
     Bcell = B[complete_cell_assignment, :]
         
     # observed matrix
     A = B.copy()
-    for mutation in range(n_mutations):
+    for mutation in range(num_mutations):
         A[A[:,mutation] > 1, mutation] = 0
     Acell = A[complete_cell_assignment, :]
     
     # cell tree
     celltree = T.copy()
-    celltree.graph["type"] = op.ul.CONST.CELL_TREE
+    celltree.graph["type"] = op.ul.DATA.CELL_TREE
     for cell_id, assigned_node_index in enumerate(complete_cell_assignment):
         celltree.add_edge(list(T.nodes)[assigned_node_index], f's{cell_id}')
 
     # generate read counts
-    Rtotal = np.zeros((n_cells, n_mutations), dtype=int)
-    Vcount = np.zeros((n_cells, n_mutations), dtype=int)
+    Rtotal = np.zeros((num_cells, num_mutations), dtype=int)
+    Vcount = np.zeros((num_cells, num_mutations), dtype=int)
     
-    for cell in range(n_cells):
-        for mutation in range(n_mutations):
+    for cell in range(num_cells):
+        for mutation in range(num_mutations):
             cluster_id = Acell[cell, -1]
             nvariant = Acell[cell, mutation]
             ntotal = R[cluster_id, mutation]
@@ -260,63 +231,64 @@ def simulate(n_cells = 5,
     Vcount_missing = Vcount.copy()
     Acell_noisy = mutation_mat.copy()
 
-    n_entries = n_cells * n_mutations
+    n_entries = num_cells * num_mutations
     nmissing = math.floor(missing_rate * n_entries)
-    selected_cell_indices = np.random.randint(n_cells, size=nmissing)
-    selected_character_indices = np.random.randint(n_mutations, size=nmissing)
+    selected_cell_indices = np.random.randint(num_cells, size=nmissing)
+    selected_character_indices = np.random.randint(num_mutations, size=nmissing)
     Acell_missing[selected_cell_indices, selected_character_indices] = -1
     Rtotal_missing[selected_cell_indices, selected_character_indices] = 0
     Vcount_missing[selected_cell_indices, selected_character_indices] = 0
     Acell_noisy[selected_cell_indices, selected_character_indices] = -1
     
     df_B = pd.DataFrame(B, index=["root"] + event_order,
-                        columns = [f'm{idx}' for idx in range(n_mutations)] + [op.ul.CONST.CLUSTER_ID], dtype=int)            
-    df_Bcell = pd.DataFrame(Bcell, index=[f's{idx}' for idx in range(n_cells)],
-                            columns = [f'm{idx}' for idx in range(n_mutations)] + [op.ul.CONST.CLUSTER_ID], dtype=int)            
-    df_Acell = pd.DataFrame(Acell, index=[f's{idx}' for idx in range(n_cells)],
-                            columns = [f'm{idx}' for idx in range(n_mutations)] + [op.ul.CONST.CLUSTER_ID], dtype=int)    
-    df_Acell_noisy = pd.DataFrame(Acell_noisy, index=[f's{idx}' for idx in range(n_cells)],
-                                  columns = [f'm{idx}' for idx in range(n_mutations)] + [op.ul.CONST.CLUSTER_ID], dtype=int)
+                        columns = [f'm{idx}' for idx in range(num_mutations)] + [op.ul.DATA.CLUSTER_ID], dtype=int)            
+    df_Bcell = pd.DataFrame(Bcell, index=[f's{idx}' for idx in range(num_cells)],
+                            columns = [f'm{idx}' for idx in range(num_mutations)] + [op.ul.DATA.CLUSTER_ID], dtype=int)            
+    df_Acell = pd.DataFrame(Acell, index=[f's{idx}' for idx in range(num_cells)],
+                            columns = [f'm{idx}' for idx in range(num_mutations)] + [op.ul.DATA.CLUSTER_ID], dtype=int)    
+    df_Acell_noisy = pd.DataFrame(Acell_noisy, index=[f's{idx}' for idx in range(num_cells)],
+                                  columns = [f'm{idx}' for idx in range(num_mutations)] + [op.ul.DATA.CLUSTER_ID], dtype=int)
     
-    df_Rtotal = pd.DataFrame(Rtotal, index=[f's{idx}' for idx in range(n_cells)],
-                        columns = [f'm{idx}' for idx in range(n_mutations)], dtype=int)
-    df_Vcount = pd.DataFrame(Vcount, index=[f's{idx}' for idx in range(n_cells)],
-                        columns = [f'm{idx}' for idx in range(n_mutations)], dtype=int)    
-    df_Rtotal_missing = pd.DataFrame(Rtotal_missing, index=[f's{idx}' for idx in range(n_cells)],
-                        columns = [f'm{idx}' for idx in range(n_mutations)], dtype=int)
-    df_Vcount_missing = pd.DataFrame(Vcount_missing, index=[f's{idx}' for idx in range(n_cells)],
-                        columns = [f'm{idx}' for idx in range(n_mutations)], dtype=int)    
+    df_Rtotal = pd.DataFrame(Rtotal, index=[f's{idx}' for idx in range(num_cells)],
+                        columns = [f'm{idx}' for idx in range(num_mutations)], dtype=int)
+    df_Vcount = pd.DataFrame(Vcount, index=[f's{idx}' for idx in range(num_cells)],
+                        columns = [f'm{idx}' for idx in range(num_mutations)], dtype=int)    
+    df_Rtotal_missing = pd.DataFrame(Rtotal_missing, index=[f's{idx}' for idx in range(num_cells)],
+                        columns = [f'm{idx}' for idx in range(num_mutations)], dtype=int)
+    df_Vcount_missing = pd.DataFrame(Vcount_missing, index=[f's{idx}' for idx in range(num_cells)],
+                        columns = [f'm{idx}' for idx in range(num_mutations)], dtype=int)    
         
     celltree.graph["cells"] = list(df_Acell.index.values)
     celltree.graph["mutations"] = list(df_Acell.columns.values[:-1]) # everything except the cluster_id column
     celltree.graph["losses"] = losses
-    
-    fpr = np.sum((Acell_noisy == 1) & (Acell == 0)) / np.sum(Acell == 0)
-    fnr = np.sum((Acell_noisy == 0) & (Acell == 1)) / np.sum(Acell == 1)
 
-    to_return = {op.ul.CONST.OBS_DATA: df_Acell_noisy, 
-                 op.ul.CONST.TRUE_DATA: df_Acell, 
-                 op.ul.CONST.CELL_TREE: celltree, 
-                 op.ul.CONST.CLONAL_TREE: to_clonal_tree(celltree, df_Acell.drop(columns="cluster_id")),
-                 op.ul.CONST.MUTATION_TREE: T,
-                 op.ul.CONST.FPR: fpr,
-                 op.ul.CONST.FNR: fnr}
-    
-    if return_reads:
-        to_return[op.ul.CONST.READ_COUNTS] = {op.ul.CONST.ALT_READS: df_Vcount, op.ul.CONST.TOTAL_READS: df_Rtotal}
-        to_return[op.ul.CONST.CORRUPT_READ_COUNTS] = {op.ul.CONST.ALT_READS: df_Vcount_missing, op.ul.CONST.TOTAL_READS: df_Rtotal_missing}
-    if return_cntree:
-        to_return[op.ul.CONST.CN_TREE] = Tc
+    adata = ad.AnnData(df_Acell_noisy.drop(columns=op.ul.DATA.CLUSTER_ID))
+    adata.var["mutation_type"] = ["SNV"] * len(df_Acell_noisy.columns[:-1])  
 
-    if save_path != "" and os.path.exists(save_path):
-        nx.drawing.nx_agraph.write_dot(T, os.path.join(save_path, prefix + "_T.dot"))
-        nx.drawing.nx_agraph.write_dot(celltree, os.path.join(save_path, prefix + "_celltree.dot"))
-        nx.drawing.nx_agraph.write_dot(Tc, os.path.join(save_path, prefix + "_Tc.dot"))
-        df_Acell_noisy.to_csv(os.path.join(save_path, prefix + "_obs.csv"))
-        df_Acell.to_csv(os.path.join(save_path, prefix + "_true.csv"))
-        df_Vcount_missing.to_csv(os.path.join(save_path, prefix + "_var_counts_noisy.csv"))
-        df_Rtotal_missing.to_csv(os.path.join(save_path, prefix + "_total_counts_noisy.csv"))
-        df_Vcount.to_csv(os.path.join(save_path, prefix + "_var_counts.csv"))
-        df_Rtotal.to_csv(os.path.join(save_path, prefix + "_total_counts.csv"))
+    # collect all trees
+    adata.uns[op.ul.DATA.CELL_TREE] = celltree
+    adata.uns[op.ul.DATA.MUTATION_TREE] = T
+    adata.uns[op.ul.DATA.CN_TREE] = Tc
+    adata.uns[op.ul.DATA.CLONAL_TREE] = op.ul.to_clonal_tree(celltree, df_Acell.drop(columns=op.ul.DATA.CLUSTER_ID))
+    
+    # collect all cell/mutation data 
+    adata.layers[op.ul.DATA.TRUE_DATA] = df_Acell.drop(columns=op.ul.DATA.CLUSTER_ID)
+    adata.layers[op.ul.DATA.OBS_DATA] = df_Acell_noisy.drop(columns=op.ul.DATA.CLUSTER_ID)
+    adata.layers[op.ul.DATA.VARIANT_READS] = df_Vcount
+    adata.layers[op.ul.DATA.TOTAL_READS] = df_Rtotal
+    adata.layers[op.ul.DATA.VARIANT_READS_CORRUPT] = df_Vcount_missing
+    adata.layers[op.ul.DATA.TOTAL_READS_CORRUPT] = df_Rtotal_missing
+    
+    # collect cell specific data
+    adata.obs[op.ul.DATA.CLUSTER_ID] = df_Acell[op.ul.DATA.CLUSTER_ID]
+    
+    # compute FPR and FNR and missing rate
+    obs_values = df_Acell_noisy.drop(columns=op.ul.DATA.CLUSTER_ID).values
+    true_values = df_Acell.drop(columns=op.ul.DATA.CLUSTER_ID).values
+    adata.uns[op.ul.DATA.MUTANT_COPY_NUMBERS] = None
+    adata.uns[op.ul.DATA.TOTAL_COPY_NUMBERS] = None
+    adata.uns[op.ul.SIM_KEYS.FPR] = np.maximum(1e-6, np.sum((obs_values == 1) & (true_values == 0)) / np.sum(true_values == 0)) # percentage of 0's flipped to 1's
+    adata.uns[op.ul.SIM_KEYS.FNR] = np.maximum(1e-6, np.sum((obs_values == 0) & (true_values == 1)) / np.sum(true_values == 1)) # percentage of 1's flipped to 0's
+    adata.uns[op.ul.SIM_KEYS.MISSING_RATE] = np.sum(obs_values == -1) / obs_values.size # percentage of entries flipped to -1
         
-    return to_return
+    return adata

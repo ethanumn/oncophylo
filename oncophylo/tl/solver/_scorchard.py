@@ -16,8 +16,11 @@ def scOrchard(input_df,
               ado_precision=15.0,
               minCellsL=1,
               minCellsG=1,
-              mcmc_iterations=0,
+              hc_iterations=0,
+              max_restarts=1,
+              patience=0,
               seed=None, 
+              hill_climbing_only=False,
               homoplasy_only=False,
               only_add_leaves=False,
               constrained=False,
@@ -51,10 +54,16 @@ def scOrchard(input_df,
     minCellsG: int
         The minimum number of cells that benefit from a mutation gain in order to consider the gain.
         Can be a whole number or a percentage.
-    mcmc_iterations: int, optional
-        The number of MCMC iterations to perform for each sampled tree (Default = 0)
+    hc_iterations: int, optional
+        The number of hill climbing iterations to perform for each sampled tree (Default = 0)
+    max_restarts: int, optional
+        The maximum number of times to run scOrchard in an effort to learn a better mutation order (Default = 1)
+    patience: int, optional
+        The number of consecutive restarts scOrchard will perform unless the log-likelihood of its best tree improves. Only is used when max_restarts > 1.
     seed: int
         The random seed to use
+    hill_climbing_only: bool
+        Flag to only run hill climbing. (Default = False)
     greedy: bool
         Flag to run scOrchard in its greedy search mode. (Default = False)
     homoplasy_only: bool
@@ -86,11 +95,11 @@ def scOrchard(input_df,
     
     clusters, pairs = [], []
     if constrained:
-        if op.ul.CONST.CLUSTER_ID not in input_df.columns:
-            raise Exception("%s isn't in the input data frame columns!" % op.ul.CONST.CLUSTER_ID) 
-        clusters = input_df[op.ul.CONST.CLUSTER_ID].values
-        input_df[op.ul.CONST.CLUSTER_ID].to_csv(clusters_fn, index=False, header=False)
-        input_df = input_df.drop(columns=op.ul.CONST.CLUSTER_ID)
+        if op.ul.DATA.CLUSTER_ID not in input_df.columns:
+            raise Exception("%s isn't in the input data frame columns!" % op.ul.DATA.CLUSTER_ID) 
+        clusters = input_df[op.ul.DATA.CLUSTER_ID].values
+        input_df[op.ul.DATA.CLUSTER_ID].to_csv(clusters_fn, index=False, header=False)
+        input_df = input_df.drop(columns=op.ul.DATA.CLUSTER_ID)
         clusterings, _ = op.tl.cluster.KModes(input_df.T, 
                                               list(input_df.index), 
                                               k=len(np.unique(clusters)))
@@ -100,8 +109,8 @@ def scOrchard(input_df,
                 f.write(" ".join(map(str, cluster)) + "\n")
 
     else:
-        if op.ul.CONST.CLUSTER_ID in input_df.columns:
-            input_df = input_df.drop(columns=op.ul.CONST.CLUSTER_ID)
+        if op.ul.DATA.CLUSTER_ID in input_df.columns:
+            input_df = input_df.drop(columns=op.ul.DATA.CLUSTER_ID)
         
     input_df.T.to_csv(input_fn, sep=" ", index=False, header=False)
     input_df.index.to_series().to_csv(cell_names_fn, index=False, header=False)
@@ -130,7 +139,9 @@ def scOrchard(input_df,
             "-precision", "%.2f" % ado_precision,
             "-minCellsL", "%d" % minCellsL,
             "-minCellsG", "%d" % minCellsG,
-            "-mcmcIterations", "%d" % mcmc_iterations,
+            "-hcIterations", "%d" % hc_iterations,
+            "-max_restarts", "%d" % max_restarts,
+            "-patience", "%d" % patience,
             "-n", "%d" % n,
             "-m", "%d" % m,
             "-i", "%s" % input_fn,
@@ -142,8 +153,9 @@ def scOrchard(input_df,
             "-ad", "%.6f" % fn,
             "-v", "%s" % variant_reads_fn if variant_reads_df is not None else "",
             "-t", "%s" % total_reads_fn if total_reads_df is not None else "",
-            "-seed", "%d" % seed if seed is not None else "",
+            "-seed" if seed is not None else "", "%d" % seed if seed is not None else "",
             "-greedy" if greedy else "",
+            "-hcOnly" if hill_climbing_only else "",
             "-homoplasyOnly" if homoplasy_only else "",
             "-onlyAddLeaves" if only_add_leaves else "",
             "-s", "%s" % clusters_fn if constrained else "",

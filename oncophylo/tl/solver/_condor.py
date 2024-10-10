@@ -43,7 +43,7 @@ def ConDoR(input_df,
     # 2 is a loss -> 0, -1 is missing -> 3
     ConDoR_mutation_types = {2:0, -1:3}
     
-    assert op.ul.CONST.CLUSTER_ID in input_df.columns, "Input must contain column: %s" % op.ul.CONST.CLUSTER_ID
+    assert op.ul.DATA.CLUSTER_ID in input_df.columns, "Input must contain column: %s" % op.ul.DATA.CLUSTER_ID
     
     temp_path = os.path.join(os.path.abspath(""),"condor_temp")
     if not os.path.exists(temp_path):
@@ -55,7 +55,7 @@ def ConDoR(input_df,
 
     n, m = input_df.shape
     
-    input_df.loc[:,input_df.columns != op.ul.CONST.CLUSTER_ID] = input_df.loc[:,input_df.columns != op.ul.CONST.CLUSTER_ID].replace(3,-1)
+    input_df.loc[:,input_df.columns != op.ul.DATA.CLUSTER_ID] = input_df.loc[:,input_df.columns != op.ul.DATA.CLUSTER_ID].replace(3,-1)
     input_df.to_csv(input_fn, index=True, header=True)
     alt_reads_df.to_csv(alt_reads_fn, index=True, header=True)
     total_reads_df.to_csv(total_reads_fn, index=True, header=True)

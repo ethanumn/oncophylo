@@ -115,12 +115,12 @@ def solution(T_cell,
     ado_precision: float, optional
         The allelic dropout precision parameter. This (along with the var_reads and total_reads) is used to calculated the likelihood of the tree under a beta binomial model.
     """
-    return {op.ul.CONST.CELL_TREE: T_cell, 
-            op.ul.CONST.CLONAL_TREE: op.ul.to_clonal_tree(T_cell, output_df) if T_clonal is None else T_clonal,
-            op.ul.CONST.MUTATION_TREE:T_mut,
-            op.ul.CONST.PRED_DATA: output_df,
-            op.ul.CONST.RUNTIME:time,
-            op.ul.CONST.MATRIX_ERROR: op.tl.score.matrix_error(output_df, character_matrix),
-            op.ul.CONST.LLH_OE: op.tl.score.score_observation_errors(output_df, character_matrix, fp, fn),
-            op.ul.CONST.LLH_BB: op.tl.score.score_beta_binomial(output_df, var_reads, total_reads, ado_precision, fp),
-            op.ul.CONST.TERMINAL_OUTPUT:output}
+    return {op.ul.DATA.CELL_TREE: T_cell, 
+            op.ul.DATA.CLONAL_TREE: op.ul.to_clonal_tree(T_cell, output_df) if T_clonal is None else T_clonal,
+            op.ul.DATA.MUTATION_TREE:T_mut,
+            op.ul.DATA.PRED_DATA: output_df,
+            op.ul.EVAL_KEYS.RUNTIME:time,
+            op.ul.EVAL_KEYS.MATRIX_ERROR: op.tl.score.matrix_error(output_df, character_matrix),
+            op.ul.EVAL_KEYS.LLH_OE: op.tl.score.score_observation_errors(output_df, character_matrix, fp, fn),
+            op.ul.EVAL_KEYS.LLH_BB: op.tl.score.score_beta_binomial(output_df, var_reads, total_reads, ado_precision, fp),
+            op.ul.DATA.TERMINAL_OUTPUT:output}

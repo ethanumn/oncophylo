@@ -5,7 +5,7 @@ from itertools import combinations
 from scipy.stats import betabinom
 
 import oncophylo as op 
-from oncophylo.ul import CONST
+from oncophylo.ul import DATA
 
 def _score_beta_binomial(B, var_reads, total_reads, ado_precision, fp):
     """Scores a genotype matrix under a beta binomial model
@@ -97,8 +97,8 @@ def score_observation_errors(B, B_input, fp, fn):
     
     # process inputs
     if isinstance(_B, pd.DataFrame):
-        if CONST.CLUSTER_ID in list(_B.columns):
-            _B = _B.drop(columns=CONST.CLUSTER_ID)
+        if DATA.CLUSTER_ID in list(_B.columns):
+            _B = _B.drop(columns=DATA.CLUSTER_ID)
         B_values = _B.values
     elif isinstance(_B, np.ndarray):
         B_values = _B
@@ -107,8 +107,8 @@ def score_observation_errors(B, B_input, fp, fn):
         return 
 
     if isinstance(_B_input, pd.DataFrame):
-        if CONST.CLUSTER_ID in list(_B_input.columns):
-            _B_input = _B_input.drop(columns=CONST.CLUSTER_ID)
+        if DATA.CLUSTER_ID in list(_B_input.columns):
+            _B_input = _B_input.drop(columns=DATA.CLUSTER_ID)
         B_input_values = _B_input.values
     elif isinstance(_B_input, np.ndarray):
         B_input_values = _B_input
@@ -155,8 +155,8 @@ def score_beta_binomial(B, var_reads, total_reads, ado_precision, fp):
     
     # process inputs
     if isinstance(_B, pd.DataFrame):
-        if CONST.CLUSTER_ID in list(_B.columns):
-            _B = _B.drop(columns=CONST.CLUSTER_ID)
+        if DATA.CLUSTER_ID in list(_B.columns):
+            _B = _B.drop(columns=DATA.CLUSTER_ID)
         B_values = _B.values
     elif isinstance(B, np.ndarray):
         B_values = _B
@@ -193,13 +193,13 @@ def matrix_error(B, B_input):
     
     # process inputs
     if isinstance(_B, pd.DataFrame):
-        if CONST.CLUSTER_ID in list(_B.columns):
-            _B = _B.drop(columns=CONST.CLUSTER_ID)
+        if DATA.CLUSTER_ID in list(_B.columns):
+            _B = _B.drop(columns=DATA.CLUSTER_ID)
         B_values = _B.values
 
     if isinstance(_B_input, pd.DataFrame):
-        if CONST.CLUSTER_ID in list(_B_input.columns):
-            _B_input = _B_input.drop(columns=CONST.CLUSTER_ID)
+        if DATA.CLUSTER_ID in list(_B_input.columns):
+            _B_input = _B_input.drop(columns=DATA.CLUSTER_ID)
         B_input_values = _B_input.values
     
     diff = np.abs(B_values - B_input_values)
@@ -209,7 +209,7 @@ def matrix_error(B, B_input):
 
 def pairwise_rel_accuracy(T, T_true):
     """Pairwise relationship accuracy"""
-    assert T.graph["type"] == CONST.CLONAL_TREE and T_true.graph["type"] == CONST.CLONAL_TREE, "Input tree must be of type %s" % CONST.CLONAL_TREE
+    assert T.graph["type"] == DATA.CLONAL_TREE and T_true.graph["type"] == DATA.CLONAL_TREE, "Input tree must be of type %s" % DATA.CLONAL_TREE
 
     # get ancestral-descendant pairs
     ad_gt = get_ad(T_true)
@@ -230,7 +230,7 @@ def pairwise_rel_accuracy(T, T_true):
 def clonal_ad(T):
     """Computes the set of Ancestor-Descendant relationships in a clonal tree. Assumes nodes are cells and edges
     are labeled by mutations"""
-    assert T.graph["type"] == CONST.CLONAL_TREE, "Input type of tree must be clonal! Use to_clonal_tree() to convert a mutation tree to a cell tree."
+    assert T.graph["type"] == DATA.CLONAL_TREE, "Input type of tree must be clonal! Use to_clonal_tree() to convert a mutation tree to a cell tree."
     root = op.ul.root_id(T)
     leaf_nodes = [node for node in T.nodes() if T.in_degree(node)!=0 and T.out_degree(node)==0]
     ad = set()
@@ -251,7 +251,7 @@ def clonal_ad(T):
 
 def clonal_clusters(T):
     """Computes the set of clusters in a clonal tree"""
-    assert T.graph["type"] == CONST.CLONAL_TREE, "Input type of tree must have nodes as cells and edges as mutations! Use to_clonal_tree() to convert a mutation tree to a cell tree."
+    assert T.graph["type"] == DATA.CLONAL_TREE, "Input type of tree must have nodes as cells and edges as mutations! Use to_clonal_tree() to convert a mutation tree to a cell tree."
     clusters = []
     root = op.ul.root_id(T)
     edge_dfs = nx.dfs_edges(T, source=root)
@@ -264,7 +264,7 @@ def clonal_clusters(T):
 
 def clonal_dl(T):
     """Computes the set of Different-Lineage relationships in a clonal tree. Assumes the input is a clonal tree."""
-    assert T.graph["type"] == CONST.CLONAL_TREE, "Input type of tree must have nodes as cells and edges as mutations! Use to_clonal_tree() to convert a mutation tree to a cell tree."
+    assert T.graph["type"] == DATA.CLONAL_TREE, "Input type of tree must have nodes as cells and edges as mutations! Use to_clonal_tree() to convert a mutation tree to a cell tree."
     
     # some mutations may be excluded and become germline, don't include those 
     mutations_in_tree = list(set(T.graph["mutations"]).difference(T.graph["become_germline"]))
@@ -279,7 +279,7 @@ def clonal_dl(T):
 
 def mt_ad(T):
     """Gets all ancestor-descendant relationships in a mutation tree"""
-    assert T.graph["type"] == CONST.MUTATION_TREE, "Input type of tree must be mutation!"
+    assert T.graph["type"] == DATA.MUTATION_TREE, "Input type of tree must be mutation!"
     ad = set()
     for ancestor in T.nodes():
         for descendant in nx.descendants(t, ancestor):
@@ -289,7 +289,7 @@ def mt_ad(T):
 
 def mt_dl(T):
     """Get all mutations on different lineages from a mutation tree"""
-    assert T.graph["type"] == CONST.MUTATION_TREE, "Input type of tree must be mutation!"
+    assert T.graph["type"] == DATA.MUTATION_TREE, "Input type of tree must be mutation!"
 
     dl = set(frozenset((n1,n2)) for n1,n2 in combinations(T.graph["mutations"],2))
     for ancestor in T.nodes():
@@ -300,22 +300,22 @@ def mt_dl(T):
 
 def get_ad(T):
     """Determines which function to call to get Ancestral-Descendant relationships"""
-    if T.graph["type"] == CONST.MUTATION_TREE:
+    if T.graph["type"] == DATA.MUTATION_TREE:
         ad = mt_ad(t)
-    elif T.graph["type"] == CONST.CLONAL_TREE:
+    elif T.graph["type"] == DATA.CLONAL_TREE:
         ad = clonal_ad(T)
     else:
-        raise Exception("Unable to determine type of input tree! Expects either %s or %s." % (CONST.MUTATION_TREE, CONST.CLONAL_TREE))
+        raise Exception("Unable to determine type of input tree! Expects either %s or %s." % (DATA.MUTATION_TREE, DATA.CLONAL_TREE))
     return ad
         
 def get_dl(T):
     """Determines which function to call to get Different Lineage relationships"""
-    if T.graph["type"] == CONST.MUTATION_TREE:
+    if T.graph["type"] == DATA.MUTATION_TREE:
         dl = mt_dl(T)
-    elif T.graph["type"] == CONST.CLONAL_TREE:
+    elif T.graph["type"] == DATA.CLONAL_TREE:
         dl = clonal_dl(T)
     else:
-        raise Exception("Unable to determine type of input tree! Expects either %s or %s." % (CONST.MUTATION_TREE, CONST.CLONAL_TREE))
+        raise Exception("Unable to determine type of input tree! Expects either %s or %s." % (DATA.MUTATION_TREE, DATA.CLONAL_TREE))
     return dl
 
 def ad_recall(T, T_true):
@@ -338,7 +338,7 @@ def dl_recall(T, T_true):
 
 def get_coclusters(T):
     """Gets all pairs of mutations that are coclustered"""
-    assert T.graph["type"] == CONST.CLONAL_TREE, "Input tree must be of type %s" % CONST.CLONAL_TREE
+    assert T.graph["type"] == DATA.CLONAL_TREE, "Input tree must be of type %s" % DATA.CLONAL_TREE
 
     cl = set()
     for c in clonal_clusters(T):
@@ -350,7 +350,7 @@ def get_coclusters(T):
 
 def cocluster_recall(T, T_true):
     """Co-cluster recall"""
-    assert T.graph["type"] == CONST.CLONAL_TREE and T.graph["type"] == CONST.CLONAL_TREE, "Input tree must be of type %s" % CONST.CLONAL_TREE
+    assert T.graph["type"] == DATA.CLONAL_TREE and T.graph["type"] == DATA.CLONAL_TREE, "Input tree must be of type %s" % DATA.CLONAL_TREE
     cl_pred = get_coclusters(T)
     cl_true = get_coclusters(T_true)
                 

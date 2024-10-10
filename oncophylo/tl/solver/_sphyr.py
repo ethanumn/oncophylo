@@ -1,5 +1,9 @@
 # SPhyR 
+import pandas as pd 
+import numpy as np
 import shutil, os
+import networkx as nx 
+
 import oncophylo as op 
 
 def SPhyR(input_df, 
@@ -44,7 +48,8 @@ def SPhyR(input_df,
     dictionary
         A dictionary of results
     """
-    
+    SPhyR_mutation_types = {2:0}
+
     temp_path = os.path.join(os.path.abspath(""),"sphyr_temp")
     if not os.path.exists(temp_path):
         os.mkdir(temp_path)
@@ -98,23 +103,25 @@ def SPhyR(input_df,
     f.close() 
     
     # prepare output dataframe
-    predicted_genotypes = pd.read_csv(output_fn, skiprows=2, names=list(input_df.columns), index_col=None, sep=" ")
-    predicted_genotypes.index = list(input_df.index)
+    output_df = pd.read_csv(output_fn, skiprows=2, names=list(input_df.columns), index_col=None, sep=" ")
+    output_df.index = list(input_df.index)
 
-    T, _ = load_dot(dot_fn, 
-                 mutations = list(input_df.columns), 
-                 cells = list(input_df.index), 
-                 _type="clonal_tree")
+    T, _ = op.io.load_dot(dot_fn, 
+                          mutations = list(input_df.columns), 
+                          cells = list(input_df.index), 
+                          _type="clonal_tree")
     
-    T_clonal = post_process_SPhyR(T, predicted_genotypes.replace(mutation_types))
+    T_clonal = post_process_SPhyR(T, output_df.replace(SPhyR_mutation_types))
             
-    solution  = {CONST.CELL_TREE: None, 
-                 CONST.CLONAL_TREE:T_clonal,
-                 CONST.MUTATION_TREE: None,
-                 CONST.PRED_DATA:predicted_genotypes,
-                 CONST.RUNTIME:end-start,
-                 CONST.LLH: score_genotypes(predicted_genotypes.replace(mutation_types), input_df, fn, fp),
-                 CONST.TERMINAL_OUTPUT:res}
+    solution = op.ul.solution(None, 
+                              None, 
+                              input_df,
+                              output_df, 
+                              fp,
+                              fn,
+                              output,
+                              time,
+                              T_clonal=T_clonal)
     
     return solution
 
@@ -126,13 +133,13 @@ def post_process_SPhyR(T, df):
     T_clonal.graph["splitter_cell"] = "\n"
     T_clonal.graph["loss_prefix"] = "-"
     T_clonal.graph["become_germline"] = list(df.columns[(df == 0).all(axis=0)])
-    T_clonal.graph["type"] = CONST.CLONAL_TREE
+    T_clonal.graph["type"] = op.ul.DATA.CLONAL_TREE
     T_clonal.graph["cells"] = list(df.index.values)
     T_clonal.graph["mutations"] = list(df.columns.values)
     T_clonal.graph["losses"] = []
         
     # get root for finding predecessor
-    root = root_id(T)
+    root = op.ul.root_id(T)
             
     # process nodes
     new_nodes = {}

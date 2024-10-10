@@ -1,6 +1,6 @@
 import re 
 import networkx as nx 
-from oncophylo.ul import CONST
+from oncophylo.ul import DATA
 
 # load dot file 
 def load_dot(fn, 
@@ -23,7 +23,7 @@ def load_dot(fn,
     cells: list
         A list of cell names. If it's empty, the cell names will attempt to be read from the graph attribute of the tree.
     _type: str
-        The type of tree being read from the file (clonal_tree, mutation_tree, cell_tree). These are all defined in the CONST dataclass (i.e., CONST.CLONAL_TREE, CONST.MUTATION_TREE, CONST.CELL_TREE)
+        The type of tree being read from the file (clonal_tree, mutation_tree, cell_tree). These are all defined in the DATA dataclass (i.e., DATA.CLONAL_TREE, DATA.MUTATION_TREE, DATA.CELL_TREE)
     loss_prefix: str
         The prefix that designates a loss in the tree. Default = '-'
     gain_prefix: str
@@ -86,10 +86,10 @@ def load_dot(fn,
             old_label = data.get('label', None)
             if old_label:
                 # Update edge labels if needed, e.g., keeping the same label or modifying it
-                new_edge_labels[(u, v)] = old_label
+                new_edge_labels[(u, v, 'label')] = old_label
 
         # Apply the new edge labels
-        nx.set_edge_attributes(T, new_edge_labels, 'label')
+        nx.set_edge_attributes(T, new_edge_labels)
                 
     # do this after renaming things
     roots = list(filter(lambda p: p[1] == 0, T.in_degree()))
@@ -114,9 +114,9 @@ def load_dot(fn,
         
     T_prime = None
     # mutation tree is recovered by removing all cells
-    if _type == CONST.CELL_TREE:
+    if _type == DATA.CELL_TREE:
         T_prime = T.copy()
-        T_prime.graph["type"] = CONST.MUTATION_TREE
+        T_prime.graph["type"] = DATA.MUTATION_TREE
         for cell in T_prime.graph["cells"]:
             if cell in T_prime.nodes():
                 T_prime.remove_node(cell)
