@@ -49,6 +49,7 @@ def SCITE(input_df,
     
     # create temp files
     m, n = input_df.shape
+    input_df = input_df.replace(-1,3)
     input_df.T.to_csv(input_fn, sep=" ", index=False, header=False)
     input_df.columns.to_series().to_csv(gene_names_fn, index=False, header=False)
     cells = input_df.index.to_series().values

@@ -10,7 +10,8 @@ def load_dot(fn,
              _type="", 
              loss_prefix="-", 
              gain_prefix="+",
-             set_id_to_label = False):
+             set_id_to_label = False,
+             preprocessor=None):
     """Load dot file. This function is heavily customized to be able to load extra data from the dot file stored
     in the 'graph' attribute.
     
@@ -25,12 +26,13 @@ def load_dot(fn,
     _type: str
         The type of tree being read from the file (clonal_tree, mutation_tree, cell_tree). These are all defined in the DATA dataclass (i.e., DATA.CLONAL_TREE, DATA.MUTATION_TREE, DATA.CELL_TREE)
     loss_prefix: str
-        The prefix that designates a loss in the tree. Default = '-'
+        The prefix that designates a loss in the tree. (Default = '-')
     gain_prefix: str
-        The prefix that designates a gain in the tree. This is specific to recurrent mutations. Default = '+'
+        The prefix that designates a gain in the tree. This is specific to recurrent mutations. (Default = '+')
     set_id_to_label: bool
-        Copies each node's ID to it's label attribute. This is used when a tree's nodes don't have a human readable label attribute, but their ID is human readable. Default = False
-
+        Copies each node's ID to it's label attribute. This is used when a tree's nodes don't have a human readable label attribute, but their ID is human readable. (Default = False)
+    preprocessor: func
+        A function that preprocesses the tree. If None, it is ignore. (Default = None)
     Returns
     --------
     Networkx.DiGraph
@@ -72,6 +74,10 @@ def load_dot(fn,
         for n in T.nodes():
             id_to_label[n] = T.nodes()[n]["label"].replace("\"", "").replace("\'", "")
         T = nx.relabel_nodes(T, id_to_label)
+
+    # allow a preprocessing function to be passed in
+    if preprocessor is not None:
+        T = preprocessor(T)
             
     # if we need to relabel nodes
     if len(mapping) > 0:

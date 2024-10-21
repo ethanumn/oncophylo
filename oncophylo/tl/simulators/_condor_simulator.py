@@ -262,7 +262,7 @@ def simulate(num_cells = 25,
     celltree.graph["mutations"] = list(df_Acell.columns.values[:-1]) # everything except the cluster_id column
     celltree.graph["losses"] = losses
 
-    adata = ad.AnnData(df_Acell_noisy.drop(columns=op.ul.DATA.CLUSTER_ID))
+    adata = ad.AnnData(df_Acell_noisy.drop(columns=op.ul.DATA.CLUSTER_ID).replace(2,0))
     adata.var["mutation_type"] = ["SNV"] * len(df_Acell_noisy.columns[:-1])  
 
     # collect all trees

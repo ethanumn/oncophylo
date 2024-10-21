@@ -60,6 +60,7 @@ def infSCITE(input_df,
     cell_names_fn = os.path.join(temp_path, "cell_names.txt")
     
     m, n = input_df.shape
+    input_df = input_df.replace(-1,3)
     input_df.T.to_csv(input_fn, sep=" ", index=False, header=False)
     input_df.columns.to_series().to_csv(gene_names_fn, index=False, header=False)
     input_df.index.to_series().to_csv(cell_names_fn, index=False, header=False)

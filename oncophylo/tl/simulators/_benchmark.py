@@ -64,6 +64,8 @@ def evaluate(adata, dataset_name, model_params, results):
     print("Running models on %s" % dataset_name)
 
     character_matrix = pd.DataFrame(adata.X, index=adata.obs.index, columns=adata.var.index)
+    gt_character_matrix = pd.DataFrame(adata.layers[op.ul.DATA.TRUE_DATA], index=adata.obs.index, columns=adata.var.index).replace(2,0)
+
     n, m = character_matrix.shape 
 
     # add cluster id if it's the adata
@@ -104,7 +106,7 @@ def evaluate(adata, dataset_name, model_params, results):
         if op.ul.EVAL_KEYS.PAIRWISE_REL_ACC in results:
             results[op.ul.EVAL_KEYS.PAIRWISE_REL_ACC].append(op.tl.score.pairwise_rel_accuracy(T_pred, T_true))
         if op.ul.EVAL_KEYS.MATRIX_ERROR in results:
-            results[op.ul.EVAL_KEYS.MATRIX_ERROR].append(op.tl.score.matrix_error(output_df, input_df))
+            results[op.ul.EVAL_KEYS.MATRIX_ERROR].append(op.tl.score.matrix_error(output_df, gt_character_matrix))
         if op.ul.EVAL_KEYS.RUNTIME in results:
             results[op.ul.EVAL_KEYS.RUNTIME].append(output[op.ul.EVAL_KEYS.RUNTIME])
         if op.ul.EVAL_KEYS.DATASET in results:

@@ -15,6 +15,7 @@ def HUNTRESS(input_df,
         os.mkdir(temp_path)
     input_fn = os.path.join(temp_path, "input.SC")
     output_fn = os.path.join(temp_path, "output")
+    input_df = input_df.replace(-1,3)
     input_df.to_csv(input_fn, sep="\t")
     
     args = [

@@ -7,6 +7,8 @@ import oncophylo as op
 def scOrchard(input_df, 
               variant_reads_df=None,
               total_reads_df=None,
+              region_reads_df=None,
+              expected_region_reads_df=None,
               k=10, 
               e=10, 
               fp=0.001, 
@@ -39,9 +41,9 @@ def scOrchard(input_df,
     e: int 
         The branching factor -- which controls how many solutions are expanded from the queue at each iteration
     fp: float
-        The false positive rate to use for likelihood calculations
+        The estimated false positive rate for the sequencing data
     fn: float
-        The false negative rate to use for likelihood calculations
+        The estimated false negative rate for the sequencing data
     K: int
         The maximum number of losses per mutation to consider (Default = 0)
     R: int
@@ -85,6 +87,8 @@ def scOrchard(input_df,
     input_fn = os.path.join(temp_path, "input.txt")
     variant_reads_fn = os.path.join(temp_path, "variant_reads.csv")
     total_reads_fn = os.path.join(temp_path, "total_reads.csv")
+    region_reads_fn = os.path.join(temp_path, "region_reads.csv")
+    expected_region_reads_fn = os.path.join(temp_path, "expected_region_reads.csv")
     cell_names_fn = os.path.join(temp_path, "cell_names.txt")
     gene_names_fn = os.path.join(temp_path, "gene_names.txt")
     clusters_fn = os.path.join(temp_path, "clusters.txt")
@@ -112,6 +116,7 @@ def scOrchard(input_df,
         if op.ul.DATA.CLUSTER_ID in input_df.columns:
             input_df = input_df.drop(columns=op.ul.DATA.CLUSTER_ID)
         
+    input_df.loc[:,input_df.columns != op.ul.DATA.CLUSTER_ID] = input_df.loc[:,input_df.columns != op.ul.DATA.CLUSTER_ID].replace(-1,3)
     input_df.T.to_csv(input_fn, sep=" ", index=False, header=False)
     input_df.index.to_series().to_csv(cell_names_fn, index=False, header=False)
     input_df.columns.to_series().to_csv(gene_names_fn, index=False, header=False)
@@ -121,6 +126,11 @@ def scOrchard(input_df,
         assert total_reads_df.shape == input_df.shape, "variant read count matrix and character matrix shape mismatch!"
         variant_reads_df.to_csv(variant_reads_fn)
         total_reads_df.to_csv(total_reads_fn)
+
+    if region_reads_df is not None and expected_region_reads_df is not None:
+        assert np.all(region_reads_df.index == expected_region_reads_df.index), "Region read matrix and expected region read matrix must have matching indices"
+        region_reads_df.to_csv(region_reads_fn, header=False)
+        expected_region_reads_df.to_csv(expected_region_reads_fn, header=False)
 
     n, m = input_df.shape
     
@@ -153,6 +163,8 @@ def scOrchard(input_df,
             "-ad", "%.6f" % fn,
             "-v", "%s" % variant_reads_fn if variant_reads_df is not None else "",
             "-t", "%s" % total_reads_fn if total_reads_df is not None else "",
+            "-r", "%s" % region_reads_fn if region_reads_df is not None else "",
+            "-re", "%s" % expected_region_reads_fn if expected_region_reads_df is not None else "",
             "-seed" if seed is not None else "", "%d" % seed if seed is not None else "",
             "-greedy" if greedy else "",
             "-hcOnly" if hill_climbing_only else "",
