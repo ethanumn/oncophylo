@@ -30,10 +30,12 @@ setup(
             "setuptools>=61.0", 
             "numpy>=1.21.0",
             "pandas>=2.0",
+            "seaborn",
             "scipy>=1.1.0", 
             "kmodes>=0.12", 
             "networkx>=3.0",
             "pydot>=2.0",
-            "gurobipy"
+            "gurobipy",
+            "anndata"
     ]
 )
