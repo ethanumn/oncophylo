@@ -42,6 +42,7 @@ class DATA:
     TOTAL_READS: str = "total_reads"
     VARIANT_READS_CORRUPT: str = "variant_reads_corrupt"
     TOTAL_READS_CORRUPT: str = "total_reads_corrupt"
+    REGION_READS: str = "region_reads"
     TOTAL_COPY_NUMBERS: str = "total_copy_numbers"
     MUTANT_COPY_NUMBERS: str = "mutant_copy_numbers"
     COPY_STATES: str = "copy_states"

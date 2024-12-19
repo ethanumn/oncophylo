@@ -8,7 +8,8 @@ def scOrchard(input_df,
               variant_reads_df=None,
               total_reads_df=None,
               region_reads_df=None,
-              expected_region_reads_df=None,
+              meta_df=None,
+              region_weights_df=None,
               k=10, 
               e=10, 
               fp=0.001, 
@@ -16,8 +17,7 @@ def scOrchard(input_df,
               K=0,
               R=0,
               ado_precision=15.0,
-              minCellsL=1,
-              minCellsG=1,
+              min_clone_fractions=[0.03],
               hc_iterations=0,
               max_restarts=1,
               patience=0,
@@ -50,12 +50,8 @@ def scOrchard(input_df,
         The maximum number of gains per mutation to consider (Default = 0)
     ado_precision: float
         The allelic dropout precision for the beta binomial likelihood model. This is only used if read counts are provided.
-    minCellsL: int
-        The minimum number of cells that benefit from a mutation loss in order to consider the loss. 
-        Can be a whole number or a percentage.
-    minCellsG: int
-        The minimum number of cells that benefit from a mutation gain in order to consider the gain.
-        Can be a whole number or a percentage.
+    min_clone_fractions: list
+        A list of floats where each describes the minimum fraction of cells that can be used to define a new clonal population. Default is [0.03]
     hc_iterations: int, optional
         The number of hill climbing iterations to perform for each sampled tree (Default = 0)
     max_restarts: int, optional
@@ -88,7 +84,8 @@ def scOrchard(input_df,
     variant_reads_fn = os.path.join(temp_path, "variant_reads.csv")
     total_reads_fn = os.path.join(temp_path, "total_reads.csv")
     region_reads_fn = os.path.join(temp_path, "region_reads.csv")
-    expected_region_reads_fn = os.path.join(temp_path, "expected_region_reads.csv")
+    mutation_location_fn = os.path.join(temp_path, "mutation_location.txt")
+    region_weights_fn = os.path.join(temp_path, "region_weights.txt")
     cell_names_fn = os.path.join(temp_path, "cell_names.txt")
     gene_names_fn = os.path.join(temp_path, "gene_names.txt")
     clusters_fn = os.path.join(temp_path, "clusters.txt")
@@ -127,19 +124,22 @@ def scOrchard(input_df,
         variant_reads_df.to_csv(variant_reads_fn)
         total_reads_df.to_csv(total_reads_fn)
 
-    if region_reads_df is not None and expected_region_reads_df is not None:
-        assert np.all(region_reads_df.index == expected_region_reads_df.index), "Region read matrix and expected region read matrix must have matching indices"
+    if region_reads_df is not None and meta_df is not None:
+        assert np.array_equal(meta_df["NAME"], variant_reads_df.columns), "meta_df and variant_reads_df do not contain the same set of mutations"
+        regions_index = [x.split("_")[1] for x in region_reads_df.index]
+        region_index_series = pd.Series([regions_index.index(x) for x in meta_df["REGION"]])
+        region_index_series.to_csv(mutation_location_fn, header=False, index=False)
         region_reads_df.to_csv(region_reads_fn, header=False)
-        expected_region_reads_df.to_csv(expected_region_reads_fn, header=False)
+
+        if region_weights_df is not None: 
+            assert np.array_equal(regions_index, list(region_weights_df.index)), "region_reads_df and region_weights_df do not have the same index"
+            region_weights_df.to_csv(region_weights_fn, index=False, header=False)
 
     n, m = input_df.shape
     
-    # process minCellsL and minCellsG
-    if minCellsL < 1:
-        minCellsL = np.maximum(1, np.ceil(minCellsL*n))
+    # check minimum clone fractions
+    assert len(min_clone_fractions) > 0 and all(isinstance(x, float) and 0 <= x <= 1 for x in min_clone_fractions), "min_clone_fractions should be a list of doubles (0,1)"
 
-    if minCellsG < 1:
-        minCellsG = np.maximum(1, np.ceil(minCellsG*n))    
 
     args = [
             "-k", "%s" % k,
@@ -147,8 +147,7 @@ def scOrchard(input_df,
             "-K", "%d" % K,
             "-R", "%d" % R,
             "-precision", "%.2f" % ado_precision,
-            "-minCellsL", "%d" % minCellsL,
-            "-minCellsG", "%d" % minCellsG,
+            "-minCloneFractions", *[str(x) for x in min_clone_fractions],
             "-hcIterations", "%d" % hc_iterations,
             "-max_restarts", "%d" % max_restarts,
             "-patience", "%d" % patience,
@@ -163,8 +162,9 @@ def scOrchard(input_df,
             "-ad", "%.6f" % fn,
             "-v", "%s" % variant_reads_fn if variant_reads_df is not None else "",
             "-t", "%s" % total_reads_fn if total_reads_df is not None else "",
-            "-r", "%s" % region_reads_fn if region_reads_df is not None else "",
-            "-re", "%s" % expected_region_reads_fn if expected_region_reads_df is not None else "",
+            "-rr", "%s" % region_reads_fn if region_reads_df is not None else "",
+            "-ri", "%s" % mutation_location_fn if meta_df is not None else "",
+            "-rw", "%s" % region_weights_fn if region_weights_df is not None else "",
             "-seed" if seed is not None else "", "%d" % seed if seed is not None else "",
             "-greedy" if greedy else "",
             "-hcOnly" if hill_climbing_only else "",
@@ -182,10 +182,12 @@ def scOrchard(input_df,
     for i in range(n_solutions):  
         dot_fn = os.path.join(output_path, output_prefix + "_ml%d.gv" % i)
         T_cell, T_mut = op.io.load_dot(dot_fn, 
-                                       mutations = list(input_df.columns), 
-                                       cells = list(input_df.index), 
                                        _type="cell_tree")
-        (T_cell, output_df) = op.ul.resolve_genotypes(T_cell, input_df)
+                                       
+        # resolve genotypes for each cell
+        clone_genotypes = np.array(T_cell.graph["genotypes"], dtype=int)
+        cell_assignments = np.array(T_cell.graph["cell_assignments"], dtype=int)
+        output_df = pd.DataFrame(clone_genotypes[cell_assignments], index=input_df.index, columns=input_df.columns)
         solutions.append(op.ul.solution(T_cell, 
                                         T_mut, 
                                         input_df,
