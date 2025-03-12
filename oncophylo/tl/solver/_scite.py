@@ -7,6 +7,7 @@ def SCITE(input_df,
           chain_length=90000, 
           fp=0.001, 
           fn=0.2, 
+          cc=0.0,
           e=0,
           n_solutions=1, 
           seed=None, 
@@ -26,6 +27,8 @@ def SCITE(input_df,
         The false positive rate (-fd for SCITE). Default = 0.001
     fn: float
         The false negative rate (-ad for SCITE). Default = 0.2
+    cc: float
+        Estimated rate of non-mutated sites called as homozygous mutations. Default = 0.0
     e: float
         Error rate jump probability (-e for SCITE). Default = 0
     n_solutions: int
@@ -64,6 +67,7 @@ def SCITE(input_df,
             "-names", "%s" % gene_names_fn,
             "-fd", "%.6f" % fp,
             "-ad", "%.6f" % fn,
+            "-cc", "%.6f" % cc,
             "-e", "%.4f" % e,
             "-seed", "%d" % seed if seed is not None else "",
             "-a"

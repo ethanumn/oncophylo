@@ -128,9 +128,6 @@ def to_clonal_tree(T, df):
     node_name = ""
 
     node_id_list = [0]
-    node_names = ["root"]
-    edges = []
-    edge_names = []
 
     while len(queue) > 0:
 
@@ -141,7 +138,7 @@ def to_clonal_tree(T, df):
         make_node = False
 
         # initialize edge name 
-        if node != "root":
+        if node != root_name:
             if len(edge_name) == 0:
                 edge_name = node
             else:

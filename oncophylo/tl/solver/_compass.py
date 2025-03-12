@@ -67,7 +67,7 @@ def COMPASS(input_df,
 
     # write input files
     variants_df = (total_reads_df - alt_reads_df).astype(str) + ":" + alt_reads_df.astype(str) + ":" + input_df.astype(str)
-    variants_df = pd.concat([meta_df.reset_index(), variants_df.T.reset_index(drop=True)], axis=1)
+    variants_df = pd.concat([meta_df.reset_index(drop=True), variants_df.T.reset_index(drop=True)], axis=1)
     variants_df.to_csv(variants_fn, index=False, header=True)
     regions_df.to_csv(regions_fn, index=True, header=False)
 

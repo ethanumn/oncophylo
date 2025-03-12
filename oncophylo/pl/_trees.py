@@ -45,7 +45,7 @@ def show_tree(
     """
     tc = tree.copy()
     root = root_id(tree)
-    tc.nodes[root]["label"] = "root"
+    tc.nodes[root]["label"] = tc.graph["root_name"]
     tc.nodes[root]["fontname"] = "Helvetica"
     tc.nodes[root]["style"] = "rounded"
     tc.nodes[root]["shape"] = "box"
