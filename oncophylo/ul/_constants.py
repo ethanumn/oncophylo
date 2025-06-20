@@ -34,6 +34,7 @@ class DATA:
     OBS_DATA: str = "observed_data"
     TRUE_DATA: str = "ground_truth_data"
     CLUSTER_ID: str = "cluster_id"
+    CELL_SAMPLE: str = "cell_sample"
     PRED_DATA: str = "predicted_data"
     RUNTIME: str = "run_time"
     TERMINAL_OUTPUT: str = "terminal_output"
@@ -50,6 +51,8 @@ class DATA:
     FNR: str = "fn_rate"
     MISSING_RATE: str = "missing_rate"
     REQUIRES_CLUSTERS: str = "requires_clusters"
+    REGION_PROBABILITIES: str = "region_probabilities"
+    DROPOUT_RATES: str = "dropout_rates"
         
 @dataclass
 class SIM_KEYS:

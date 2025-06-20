@@ -23,7 +23,8 @@ def COMPASS(input_df,
             loh_cost=85,
             ado_precision=15.0,
             sex="female",
-            remove_temp_dir = True):
+            remove_temp_dir = True,
+            destination_dir = ""):
     
     """Python wrapper for ConDoR
     
@@ -52,6 +53,10 @@ def COMPASS(input_df,
     dictionary
         A dictionary of results
     """
+
+    # make sure meta_df only contains the columns that COMPASS expects
+    compass_columns = np.intersect1d(meta_df.columns, ["CHR","POS","REF","ALT","REGION","NAME","FREQ"])
+    meta_df = meta_df[compass_columns]
         
     temp_path = os.path.join(os.path.abspath(""),"compass_temp")
     if not os.path.exists(temp_path):
@@ -64,6 +69,10 @@ def COMPASS(input_df,
     genotypes_fn = os.path.join(temp_path, "out_nodes_genotypes.tsv")
     cell_assignments_fn = os.path.join(temp_path, "out_cellAssignments.tsv")
     copy_numbers_fn = os.path.join(temp_path, "out_nodes_copynumbers.tsv")
+
+    # preprocess meta_df columns
+    if meta_df.index.name != None:
+            meta_df = meta_df.reset_index()
 
     # write input files
     variants_df = (total_reads_df - alt_reads_df).astype(str) + ":" + alt_reads_df.astype(str) + ":" + input_df.astype(str)
@@ -91,6 +100,7 @@ def COMPASS(input_df,
 
     T_cell, T_mut, T, output_genotypes = postprocess_COMPASS(tree_fn, cell_assignments_fn, genotypes_fn, copy_numbers_fn)
     output_df = pd.DataFrame(output_genotypes, index=input_df.index, columns=input_df.columns)
+        
 
     solution = op.ul.solution(T_cell, 
                               T_mut, 
@@ -106,6 +116,9 @@ def COMPASS(input_df,
                               ado_precision=ado_precision)
 
     solution["tree_output"] = T
+
+    # save output files into a directory if provided a valid directory
+    op.ul.save_output_files(destination_dir, [tree_fn, genotypes_fn, cell_assignments_fn, copy_numbers_fn])
     
     # return solution
     return solution
@@ -117,9 +130,9 @@ def postprocess_COMPASS(tree_fn, cell_assignments_fn, genotypes_fn, copy_numbers
 
     cell_assignments_df = pd.read_csv(cell_assignments_fn, header=0, index_col=0, sep="\t")
     node_genotypes_df = pd.read_csv(genotypes_fn, index_col=0, sep="\t")
-    copy_numbers_df = pd.DataFrame()
+    total_copy_numbers_df = pd.DataFrame()
     if os.path.isfile(copy_numbers_fn): # only load if we ran with CNA = 1
-        copy_numbers_df = pd.read_csv(copy_numbers_fn, header=0, index_col=0, sep="\t")
+        total_copy_numbers_df = pd.read_csv(copy_numbers_fn, header=0, index_col=0, sep="\t")
 
     # process labels so they match scOrchard
     for node in T_mut.nodes:
@@ -142,6 +155,7 @@ def postprocess_COMPASS(tree_fn, cell_assignments_fn, genotypes_fn, copy_numbers
             else:
                 T_mut.nodes[node]["label"] = label_parts[0]
 
+    T_mut.graph["root_name"] = T_mut.nodes["0"]["label"]
     T = copy.deepcopy(T_mut.copy())
 
     # remove nodes from tree that aren't relevant
@@ -150,14 +164,9 @@ def postprocess_COMPASS(tree_fn, cell_assignments_fn, genotypes_fn, copy_numbers
     T_mut.remove_nodes_from(nodes_to_remove)
     node_names = [f"Node {node}" for node in T_mut.nodes]
     cell_assignments = cell_assignments_df["node"].values
-
-    # add tree graph
-    T_mut.graph[op.ul.DATA.TOTAL_COPY_NUMBERS] = copy_numbers_df.T.values
-    T_mut.graph["mutations"] = node_names
-    T_mut.graph["root_id"] = str(0)
-    T_mut.graph["root_name"] = str(0)
     T_mut.graph["cell_assignments"] = cell_assignments
-
+    T_mut.graph[op.ul.DATA.MUTANT_COPY_NUMBERS] = node_genotypes_df.values
+    T_mut.graph[op.ul.DATA.TOTAL_COPY_NUMBERS] = total_copy_numbers_df.values
     T_cell = T_mut.copy() # create cell tree
 
     # add cell attachments

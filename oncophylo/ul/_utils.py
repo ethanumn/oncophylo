@@ -124,3 +124,23 @@ def solution(T_cell,
             op.ul.EVAL_KEYS.LLH_OE: op.tl.score.score_observation_errors(output_df, character_matrix, fp, fn),
             op.ul.EVAL_KEYS.LLH_BB: op.tl.score.score_beta_binomial(output_df, var_reads, total_reads, ado_precision, fp),
             op.ul.DATA.TERMINAL_OUTPUT:output}
+
+
+def save_output_files(destination_dir, file_paths):
+    """Copies files into a directory
+
+    Input
+    ------
+    destination_dir: str
+        A directory to copy all files in file_paths to
+    file_paths: list
+        A list of file paths to copy
+    """
+    if destination_dir != "":
+        if not os.path.exists(destination_dir):
+            os.mkdir(destination_dir)
+
+        for file_path in file_paths:
+            if not os.path.exists(file_path):
+                raise ExceptionType(f"{file_path} does not exist, yet we are trying to copy it")
+            shutil.copy(file_path, destination_dir)
