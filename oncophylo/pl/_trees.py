@@ -2,6 +2,7 @@ import networkx as nx
 import pandas as pd 
 from IPython.display import Image, display
 from networkx.drawing.nx_pydot import graphviz_layout
+import pydot 
 
 from oncophylo.ul import root_id 
 
@@ -11,8 +12,9 @@ def show_tree(
     cells_as_number=False,
     show_id=False,
     cell_info=None,
-    output_file=None,
+    save_path=None,
     color_attr=None,
+    vertical=True,
     dpi=150,
 ):
     """Draw the tree
@@ -31,8 +33,8 @@ def show_tree(
         Whether to show IDs of nodes and edges or not, by default True
     cell_info : :class:`pandas.DataFrame`, optional
         Information of cells for coloring the nodes by a pie chart, by default None
-    output_file : :obj:`str`, optional
-        Path to a file for saving the tree in, by default None
+    save_path : :obj:`str`, optional
+        Path to a file for saving the tree in (extension should be .pdf or .png), by default None
     color_attr : :obj:`str`, optional
         Attributes in the `cell_info` dataframe for coloring the nodes, by default None
     dpi : :obj:`int`, optional
@@ -118,10 +120,30 @@ def show_tree(
             tc.add_edge(u, v, label=label + f"\n[{v}]")
             tc.nodes[v]["label"] = tc.nodes[v]["label"] + f"\n[{v}]"
 
-    tc.graph["graph"] = {"fontname": "Helvetica"}
+    if vertical:
+        tc.graph["graph"] = {"fontname": "Helvetica"}
+    else:
+        tc.graph["graph"] = {"fontname": "Helvetica", "rankdir": "LR"}
     tc.graph["node"] = {"fontname": "Helvetica", "fontsize": 14}
     tc.graph["edge"] = {"fontname": "Helvetica", "fontsize": 14}
 
+    pydot_graph = nx.drawing.nx_pydot.to_pydot(tc)
+
+    if "rank_same" in tc.graph:
+        for group in tc.graph["rank_same"]:
+            rank_group = pydot.Subgraph(rank='same')
+            for node in group:
+                rank_group.add_node(pydot.Node(node))
+            pydot_graph.add_subgraph(rank_group)
+
+    if save_path:
+        if save_path.endswith(".pdf"):
+            pydot_graph.write_pdf(save_path)
+        elif save_path.endswith(".png"):
+            pydot_graph.write_png(save_path)
+        else:
+            raise ValueError("Unsupported file extension. Use '.pdf' or '.png'.")
+
     return display(
-        Image(nx.drawing.nx_pydot.to_pydot(tc).create_png(), embed=True, retina=True)
+        Image(pydot_graph.create_png(), embed=True, retina=True)
     )

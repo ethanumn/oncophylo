@@ -27,6 +27,40 @@ def binary_path(binary_name):
             print(f"Cannot locate binary executable at {ex}")
     return ex
 
+def convert_args(args_dict):
+    """Converts arguments stored in a dictionary into a vector that can be passed to subprocess
+    
+    Input
+    -----
+    args_dict: dict
+        Dictionary where keys are string
+    """
+    args_list = []
+    for k, v in args_dict.items():
+        if k != "" and v != "":
+            args_list.append(k)
+            args_list.append(v)
+    return args_list
+
+def save_output_files(destination_dir, file_paths):
+    """Copies files into a directory
+
+    Input
+    ------
+    destination_dir: str
+        A directory to copy all files in file_paths to
+    file_paths: list
+        A list of file paths to copy
+    """
+    if destination_dir != "":
+        if not os.path.exists(destination_dir):
+            os.mkdir(destination_dir)
+
+        for file_path in file_paths:
+            if not os.path.exists(file_path):
+                raise ExceptionType(f"{file_path} does not exist, yet we are trying to copy it")
+            shutil.copy(file_path, destination_dir)
+
 def script_path(library, script_name):
     """Finds a script within a library
     
@@ -48,12 +82,50 @@ def script_path(library, script_name):
     else:
         print(f"Cannot locate script at {ex}")
 
-def subprocess(call, stdout=None):
+def solution(T_cell, 
+             T_mut, 
+             character_matrix,
+             corrected_character_matrix, 
+             output,
+             time,
+             T_clonal=None):
+    """Returns a dictionary with all of the outputs and performance metrics for a solution. Depending on which inputs are provided,
+    different measurements will available in the dictionary return by this function.
+    
+    Input
+    ------
+    T_cell: Networkx.DiGraph
+        A cell tree where internal nodes are mutations and leaves are cells
+    T_mut: Networkx.DiGraph
+        A mutation tree
+    character_matrix: pd.DataFrame
+        The character matrx input the algorithm
+    corrected_character_matrix: pd.DataFrame
+        The corrected character matrix after reconstruction
+    output: str
+        The subprocess output (i.e., the terminal output)
+    time: float
+        The amount of time in seconds it took for the subprocess to complete
+    T_clonal: Networkx.DiGraph, optional
+        A clonal tree where nodes are groups of cells and edges are groups of mutations.
+        Some methods output a clonal tree, so providing this will make it so a a clonal tree isn't computed.
+    """
+    return {op.ul.DATA.CELL_TREE: T_cell, 
+            op.ul.DATA.CLONAL_TREE: op.ul.to_clonal_tree(T_cell, output_df) if T_clonal is None else T_clonal,
+            op.ul.DATA.MUTATION_TREE:T_mut,
+            op.ul.DATA.PRED_DATA: corrected_character_matrix,
+            op.ul.EVAL_KEYS.RUNTIME:time,
+            op.ul.DATA.TERMINAL_OUTPUT:output}
+
+
+def subprocess(call, stdout=None, stderr=None):
     """
     Input
     ------
     call: str
         A call to a binary executable 
+    stdout: str
+        Fil
 
     Returns
     --------
@@ -64,83 +136,10 @@ def subprocess(call, stdout=None):
     """
     start = perf_counter()
     res = None
-    if stdout == None:
-        res = sp.run(call, capture_output=True)
+    if stdout == None and stderr == None:
+        res = sp.run(call, capture_output=True, text=True)
     else:
-        sp.run(call, stdout=stdout)
+        sp.run(call, stdout=stdout, stderr=stderr)
     end = perf_counter()
 
     return res, end-start
-
-def solution(T_cell, 
-             T_mut, 
-             character_matrix,
-             output_df, 
-             fp,
-             fn,
-             output,
-             time,
-             T_clonal=None,
-             var_reads=None,
-             total_reads=None,
-             ado_precision=None):
-    """Returns a dictionary with all of the outputs and performance metrics for a solution. Depending on which inputs are provided,
-    different measurements will available in the dictionary return by this function.
-    
-    Input
-    ------
-    T_cell: Networkx.DiGraph
-        A cell tree where internal nodes are mutations and leaves are cells
-    T_mut: Networkx.DiGraph
-        A mutation tree
-    fp: float
-        The false positive rate for scoring the character matrix
-    fn: float
-        The false negative rate for scoring the character matrix
-    character_matrix: pd.DataFrame
-        The character matrx input the algorithm
-    output_df: pd.DataFrame
-        The predicted character matrix
-    output: str
-        The subprocess output (i.e., the terminal output)
-    time: float
-        The amount of time in seconds it took for the subprocess to complete
-    T_clonal: Networkx.DiGraph, optional
-        A clonal tree where nodes are groups of cells and edges are groups of mutations.
-        Some methods output a clonal tree, so providing this will make it so a a clonal tree isn't computed.
-    var_reads: pd.DataFrame, optional
-        A cell by mutation matrix of variant read counts 
-    total_reads: pd.DataFrame, optional
-        A cell by mutation matrix of total read counts 
-    ado_precision: float, optional
-        The allelic dropout precision parameter. This (along with the var_reads and total_reads) is used to calculated the likelihood of the tree under a beta binomial model.
-    """
-    return {op.ul.DATA.CELL_TREE: T_cell, 
-            op.ul.DATA.CLONAL_TREE: op.ul.to_clonal_tree(T_cell, output_df) if T_clonal is None else T_clonal,
-            op.ul.DATA.MUTATION_TREE:T_mut,
-            op.ul.DATA.PRED_DATA: output_df,
-            op.ul.EVAL_KEYS.RUNTIME:time,
-            op.ul.EVAL_KEYS.MATRIX_ERROR: op.tl.score.matrix_error(output_df, character_matrix),
-            op.ul.EVAL_KEYS.LLH_OE: op.tl.score.score_observation_errors(output_df, character_matrix, fp, fn),
-            op.ul.EVAL_KEYS.LLH_BB: op.tl.score.score_beta_binomial(output_df, var_reads, total_reads, ado_precision, fp),
-            op.ul.DATA.TERMINAL_OUTPUT:output}
-
-
-def save_output_files(destination_dir, file_paths):
-    """Copies files into a directory
-
-    Input
-    ------
-    destination_dir: str
-        A directory to copy all files in file_paths to
-    file_paths: list
-        A list of file paths to copy
-    """
-    if destination_dir != "":
-        if not os.path.exists(destination_dir):
-            os.mkdir(destination_dir)
-
-        for file_path in file_paths:
-            if not os.path.exists(file_path):
-                raise ExceptionType(f"{file_path} does not exist, yet we are trying to copy it")
-            shutil.copy(file_path, destination_dir)

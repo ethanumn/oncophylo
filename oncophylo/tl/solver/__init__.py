@@ -11,5 +11,7 @@ from oncophylo.tl.solver._ltorchard import ltOrchard
 from oncophylo.tl.solver._scarlet import scarlet
 from oncophylo.tl.solver._grmt import GRMT
 from oncophylo.tl.solver._bitsc2 import BitSC2
+from oncophylo.tl.solver._lace import LACE
 
-__all__ = (BitSC2, ConDoR, COMPASS, GRMT, HUNTRESS, infSCITE, ltOrchard, scarlet, SCITE, scaOrchard, SPhyR)
+
+__all__ = (BitSC2, ConDoR, COMPASS, GRMT, HUNTRESS, infSCITE, LACE, ltOrchard, scarlet, SCITE, scaOrchard, SPhyR)

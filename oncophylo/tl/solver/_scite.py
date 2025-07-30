@@ -2,39 +2,43 @@
 import shutil, os
 import oncophylo as op 
 
-def SCITE(input_df, 
+def SCITE(character_matrix, 
           repetitions=3, 
           chain_length=90000, 
           fp=0.001, 
-          fn=0.2, 
+          fn1=0.2, 
+          fn2=0.0, 
           cc=0.0,
           e=0,
           n_solutions=1, 
           seed=None, 
-          remove_temp_dir=True):
+          remove_temp_dir=True,
+          destination_dir = ""):
     """
     SCITE Python Wrapper
     
     Parameters
     ----------
-    input_df: pd.DataFrame
-        A Pandas dataframe where the row are cells and the columns are mutations
+    character_matrix: pd.DataFrame
+        A character matrix where the row are cells and the columns are mutations
     repetitions: int
-        The number of restarts to run (-r for SCITE)
+        The number of restarts to run (-r for SCITE).
     chain_length: int
-        The number of trees to sample during MCMC (-l for SCITE)
+        The number of trees to sample during MCMC (-l for SCITE).
     fp: float
-        The false positive rate (-fd for SCITE). Default = 0.001
-    fn: float
-        The false negative rate (-ad for SCITE). Default = 0.2
+        The false positive rate (-fd for SCITE). Default = 0.001.
+    fn1: float
+        The false negative rate for heterozygous loci (-ad for SCITE). Default = 0.2.
+    fn2: float
+        The flase negative rate for homozygous loci. Default = 0.0.
     cc: float
-        Estimated rate of non-mutated sites called as homozygous mutations. Default = 0.0
+        Estimated rate of non-mutated sites called as homozygous mutations. Default = 0.0.
     e: float
-        Error rate jump probability (-e for SCITE). Default = 0
+        Error rate jump probability (-e for SCITE). Default = 0.
     n_solutions: int
-        The number of solutions to return. Default = 1
+        The number of solutions to return. Default = 1.
     remove_temp_dir: bool
-        Flag to remove the temporary directory used to store scOrchard's input/output files. Default = True
+        Flag to remove the temporary directory used to store scOrchard's input/output files. Default = True.
 
     Returns
     --------
@@ -56,22 +60,30 @@ def SCITE(input_df,
     input_df.T.to_csv(input_fn, sep=" ", index=False, header=False)
     input_df.columns.to_series().to_csv(gene_names_fn, index=False, header=False)
     cells = input_df.index.to_series().values
-    
-    args = [
-            "-r", "%s" % repetitions,
-            "-l", "%d" % chain_length,
-            "-n", "%d" % n,
-            "-m", "%d" % m,
-            "-i", "%s" % input_fn,
-            "-o", "%s" % output_fn,
-            "-names", "%s" % gene_names_fn,
-            "-fd", "%.6f" % fp,
-            "-ad", "%.6f" % fn,
-            "-cc", "%.6f" % cc,
-            "-e", "%.4f" % e,
-            "-seed", "%d" % seed if seed is not None else "",
-            "-a"
-    ]
+
+    fn_params = f"{fn1}"
+    if fn2 > 0.0:
+        fn_params = f"{fn1} {fn2}"
+
+    args_dict = {
+        "-r": str(repetitions),
+        "-l": str(chain_length),
+        "-n": str(n),
+        "-m": str(m),
+        "-i": input_fn,
+        "-o": output_fn,
+        "-names": gene_names_fn,
+        "-fd": f"{fp:.6f}",
+        "-ad": fn_params,
+        "-cc": f"{cc:.6f}",
+        "-e": f"{e:.4f}",
+    }
+
+    if seed is not None:
+        args_dict["-seed"] = str(seed)
+
+    args = op.ul.convert_args(args_dict) # convert to list for subprocess
+    args.append("-a")
 
     # run SCITE
     output, time = op.ul.subprocess([op.ul.binary_path("SCITE")] + args)
@@ -82,19 +94,21 @@ def SCITE(input_df,
         dot_fn = os.path.join(output_fn + "_ml%d.gv" % i,)
         mapping = {'s%d' % i:cells[i] for i in range(len(cells))}
         T_cell, T_mut = op.io.load_dot(dot_fn, 
-                                       mutations = list(input_df.columns), 
-                                       cells = list(input_df.index), 
+                                       mutations = list(character_matrix.columns), 
+                                       cells = list(character_matrix.index), 
                                        mapping=mapping,
                                        _type="cell_tree")
-        (T_cell, output_df) = op.ul.resolve_genotypes(T_cell, input_df)
+        (T_cell, corrected_character_matrix) = op.ul.resolve_genotypes(T_cell, character_matrix)
         solutions.append(op.ul.solution(T_cell, 
                                         T_mut, 
-                                        input_df,
-                                        output_df, 
-                                        fp,
-                                        fn,
+                                        character_matrix,
+                                        corrected_character_matrix, 
                                         output,
                                         time))
+
+        # save output files into a directory if provided a valid directory
+        op.ul.save_output_files(destination_dir, [dot_fn])
+
     if remove_temp_dir:
         shutil.rmtree(temp_path)
         

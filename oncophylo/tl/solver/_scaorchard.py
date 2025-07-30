@@ -11,14 +11,19 @@ def scaOrchard(character_matrix,
                meta_df=None,
                cell_samples=None,
                fp=0.02, 
-               fn=0.2, 
-               hom_precision=15.0,
-               het_precision=4.0,
+               fn=0.02, 
+               fn_indel=0.06,
+               hom_precision=50.0,
+               het_precision=8.0,
+               hom_precision_indel=15.0,
+               het_precision_indel=4.0,
                dropout_concentration=100.0,
                dropout_rate_prior=0.05,
                theta=6.0,
                mcmc_iters=200,
                seed=None, 
+               log_stderr=True,
+               log_stdout=True,
                remove_temp_dir=True,
                destination_dir=""):
     """
@@ -39,13 +44,19 @@ def scaOrchard(character_matrix,
     cell_samples: np.array
         A NumPy array containing an integer value indicating which sample each cell came from
     fp: float
-        The estimated false positive rate for the sequencing data
+        The estimated false positive rate for the sequencing data (SNVs)
     fn: float
-        The estimated false negative rate for the sequencing data
+        The estimated false negative rate for the sequencing data (SNVs)
+    fn_indel: float
+        The estimated false negative rate for the sequencing data (indels)
     hom_precision: float
-        The precision parameter for the beta binomial likelihood model when the loci is homozygous
+        The precision parameter for the beta binomial likelihood model when the loci is homozygous (SNVs)
     het_precision: float
-        The precision parameter for the beta binomial likelihood model when the loci is heterozygous
+        The precision parameter for the beta binomial likelihood model when the loci is heterozygous (SNVs)
+    hom_precision_indel: float
+        The precision parameter for the beta binomial likelihood model when the loci is homozygous (indels)
+    het_precision_indel: float
+        The precision parameter for the beta binomial likelihood model when the loci is heterozygous (indels)
     dropout_concentration: float
         The dropout concentration parameter used when updating the dropout rates for each loci
     dropout_rate_prior: float
@@ -54,6 +65,10 @@ def scaOrchard(character_matrix,
         The maximum number of Markov Chain Monte Carlo moves at each iteration for sampling CNAs
     seed: int
         The random seed to use
+    log_stderr: bool
+        Flag to write the stderr to a text file
+    log_stdout: bool
+        Flag to write the stdout to a text file
     remove_temp_dir: bool
         Flag to remove the temporary directory used to store scOrchard's input/output files (Default = True)
     destination_dir: str
@@ -74,6 +89,8 @@ def scaOrchard(character_matrix,
     total_reads_fn = os.path.join(temp_path, "total_reads.csv")
     region_reads_fn = os.path.join(temp_path, "region_reads.csv")
     cell_samples_fn = os.path.join(temp_path, "cell_samples.txt")
+    stderr_fn = os.path.join(temp_path, "stderr.txt")
+    stdout_fn = os.path.join(temp_path, "stdout.txt")
 
     output_path = os.path.join(temp_path)
     output_prefix = "out"
@@ -87,6 +104,7 @@ def scaOrchard(character_matrix,
         total_reads_df.to_csv(total_reads_fn, index=True, header=True)
 
     is_snp = [0]*meta_df.shape[0]
+    is_sbs = [1]*meta_df.shape[0]
     meta = None
     if region_reads_df is not None and meta_df is not None:
         assert np.all(np.sort(meta_df["NAME"]) == np.sort(variant_reads_df.columns)), "meta_df and variant_reads_df do not contain the same set of mutations"
@@ -96,8 +114,13 @@ def scaOrchard(character_matrix,
         meta["REGION_INDEX"] = region_index
         if "FREQ" in meta.columns:
             is_snp = [int(x > 0.0) for x in meta["FREQ"]]
+        if "REF" in meta.columns and "ALT" in meta.columns:
+            bases = ["a", "t", "g", "c"]
+            is_sbs = [int((r.lower() in bases) and (a.lower() in bases)) for r,a in zip(meta["REF"], meta["ALT"])]
 
         meta["SNP"] = is_snp
+        meta["SBS"] = is_sbs
+
         region_reads_df.T.to_csv(region_reads_fn, index=True, header=True) # file with region read counts
 
     # cell samples is a label for which sample each cell belongs to
@@ -110,37 +133,54 @@ def scaOrchard(character_matrix,
     cell_samples.to_csv(cell_samples_fn, header=False, index=False)
     meta.to_csv(meta_fn, index=True, header=True)
 
-    args = [
-            "-homp", "%.2f" % hom_precision,
-            "-hetp", "%.2f" % het_precision,
-            "-dropoutc", "%.2f" % dropout_concentration,
-            "-dropoutrp", "%.6f" % dropout_rate_prior,
-            "-theta", "%.2f" % theta,
-            "-c", "%s" % character_matrix_fn,
-            "-meta", "%s" % meta_fn if meta is not None else "",
-            "-o", "%s" % output_path,
-            "-p", "%s" % output_prefix,
-            "-s", "%s" % cell_samples_fn,
-            "-fp", "%.6f" % fp,
-            "-fn", "%.6f" % fn,
-            "-v", "%s" % variant_reads_fn if variant_reads_df is not None else "",
-            "-t", "%s" % total_reads_fn if total_reads_df is not None else "",
-            "-r", "%s" % region_reads_fn if region_reads_df is not None else "",
-            "-iters", "%d" % mcmc_iters, 
-            "-seed" if seed is not None else "", "%d" % seed if seed is not None else "",
-    ]
+    args_dict = {
+        "-homp": f"{hom_precision:.2f}",
+        "-hetp": f"{het_precision:.2f}",
+        "-homp-indel": f"{hom_precision_indel:.2f}",
+        "-hetp-indel": f"{het_precision_indel:.2f}",
+        "-dropoutc": f"{dropout_concentration:.2f}",
+        "-dropoutp": f"{dropout_rate_prior:.6f}",
+        "-theta": f"{theta:.2f}",
+        "-c": character_matrix_fn,
+        "-meta": meta_fn if meta is not None else "",
+        "-o": output_path,
+        "-p": output_prefix,
+        "-s": cell_samples_fn,
+        "-fp": f"{fp:.6f}",
+        "-fn": f"{fn:.6f}",
+        "-fn-indel": f"{fn_indel:.6f}",
+        "-v": variant_reads_fn if variant_reads_df is not None else "",
+        "-t": total_reads_fn if total_reads_df is not None else "",
+        "-r": region_reads_fn if region_reads_df is not None else "",
+        "-iters": str(mcmc_iters),
+    }
+
+    if seed is not None:
+        args_dict["-seed"] = str(seed)
+
+    args = op.ul.convert_args(args_dict) # convert to list for subprocess
 
     # run scOrchard
     output, time = op.ul.subprocess([os.path.join(os.path.expanduser("~"), "scaOrchard/bin/scaOrchard")] + args)
  
-    dot_fn = os.path.join(output_path, output_prefix + "_ml0.gv" % i)
+    # log stderr
+    if log_stderr:
+        with open(stderr_fn, "w") as f:
+            f.write(output.stderr)
+
+    # log stdout
+    if log_stdout:
+        with open(stdout_fn, "w") as f:
+            f.write(output.stdout)
+
+    dot_fn = os.path.join(output_path, output_prefix + "_ml0.gv")
     T_cell, T_mut = op.io.load_dot(dot_fn, 
-                                    _type="cell_tree")
+                                   _type="cell_tree")
                                     
     # resolve genotypes for each cell
     clone_genotypes = np.array(T_cell.graph["genotypes"], dtype=int)
     cell_assignments = np.array(T_cell.graph["cell_assignments"], dtype=int)
-    out_character_matrix = pd.DataFrame(clone_genotypes[cell_assignments], index= character_matrix.index, columns=character_matrix.columns)
+    corrected_character_matrix = pd.DataFrame(clone_genotypes[cell_assignments], index= character_matrix.index, columns=character_matrix.columns)
 
     # save output files into a directory if provided a valid directory
     op.ul.save_output_files(destination_dir, [dot_fn])
@@ -151,10 +191,6 @@ def scaOrchard(character_matrix,
     return op.ul.solution(T_cell, 
                           T_mut, 
                           character_matrix,
-                          out_character_matrix, 
-                          fp,
-                          fn,
+                          corrected_character_matrix, 
                           output,
-                          time,
-                          var_reads=variant_reads_df,
-                          total_reads=total_reads_df)
+                          time)

@@ -26,7 +26,7 @@ def COMPASS(input_df,
             remove_temp_dir = True,
             destination_dir = ""):
     
-    """Python wrapper for ConDoR
+    """Python wrapper for COMPASS
     
     
     Parameters
@@ -80,20 +80,27 @@ def COMPASS(input_df,
     variants_df.to_csv(variants_fn, index=False, header=True)
     regions_df.to_csv(regions_fn, index=True, header=False)
 
-    args = ["-i", "%s" % os.path.join(temp_path, "input"),
-            "-o", "%s" % os.path.join(temp_path, "out"),
-            # "--nchains", "%d" % n_chains,
-            "--chainlength", "%d" % chain_length,
-            # "--CNA", "%d" % int(infer_cnvs) if not infer_cnvs else "",
-            # "--sex", "%s" % sex,
-            "-d", "%d" % int(infer_doublets),
-            # "--doubletrate", "%.6f" % double_rate,
-            # "--dropoutrate", "%.6f" % dropout_rate_concentration,
-            # "--seqerror", "%.6f" % seq_error,
-            # "--nodecost", "%d" % node_cost,
-            # "--cnacost", "%d" % cna_cost,
-            # "--lohcost", "%d" % loh_cost
-    ]
+    # collect arguments
+    args_dict = {
+        "-i": os.path.join(temp_path, "input"),
+        "-o": os.path.join(temp_path, "out"),
+        "--nchains": str(n_chains),
+        "--chainlength": str(chain_length),
+        "--sex": sex,
+        "-d": str(int(infer_doublets)),
+        "--doubletrate": f"{double_rate:.6f}",
+        "--dropoutrate": f"{dropout_rate_concentration:.6f}",
+        "--seqerror": f"{seq_error:.6f}",
+        "--nodecost": str(node_cost),
+        "--cnacost": str(cna_cost),
+        "--lohcost": str(loh_cost),
+    }
+
+    # optional
+    if not infer_cnvs:
+        args_dict["--CNA"] = "0"
+
+    args = op.ul.convert_args(args_dict) # convert to list for subprocess
 
     # run COMPASS
     output, time = op.ul.subprocess([op.ul.binary_path("COMPASS")] + args)
