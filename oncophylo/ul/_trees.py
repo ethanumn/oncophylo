@@ -8,8 +8,8 @@ from oncophylo.ul import DATA
 def resolve_genotypes(T, input_df=None):
     """Resolves genotypes given a cell tree
     
-    Input
-    -------
+    Parameters
+    -----------
     T : Networkx.DiGraph
         A cell tree represented with a Networkx Digraph. All leaves and mutations in the input_df must be present in the tree.
     input_df : pd.DataFrame, optional

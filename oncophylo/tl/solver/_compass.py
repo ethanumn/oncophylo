@@ -5,7 +5,7 @@ import networkx as nx
 
 import oncophylo as op 
 
-def COMPASS(input_df,
+def COMPASS(character_matrix,
             alt_reads_df,
             total_reads_df,
             regions_df,
@@ -31,7 +31,7 @@ def COMPASS(input_df,
     
     Parameters
     ----------
-    input_df: pd.DataFrame
+    character_matrix: pd.DataFrame
         A Pandas dataframe where rows are cells and columns are mutations and the entries at the present/absense of each SNV in each cell
     alt_reads_df: pd.DataFrame
         A Pandas dataframe where rows are cells and columns are mutations and the entries at the variant reads mapped per cell/SNV
@@ -75,7 +75,7 @@ def COMPASS(input_df,
             meta_df = meta_df.reset_index()
 
     # write input files
-    variants_df = (total_reads_df - alt_reads_df).astype(str) + ":" + alt_reads_df.astype(str) + ":" + input_df.astype(str)
+    variants_df = (total_reads_df - alt_reads_df).astype(str) + ":" + alt_reads_df.astype(str) + ":" + character_matrix.astype(str)
     variants_df = pd.concat([meta_df.reset_index(drop=True), variants_df.T.reset_index(drop=True)], axis=1)
     variants_df.to_csv(variants_fn, index=False, header=True)
     regions_df.to_csv(regions_fn, index=True, header=False)
@@ -106,21 +106,16 @@ def COMPASS(input_df,
     output, time = op.ul.subprocess([op.ul.binary_path("COMPASS")] + args)
 
     T_cell, T_mut, T, output_genotypes = postprocess_COMPASS(tree_fn, cell_assignments_fn, genotypes_fn, copy_numbers_fn)
-    output_df = pd.DataFrame(output_genotypes, index=input_df.index, columns=input_df.columns)
+    corrected_character_matrix = pd.DataFrame(output_genotypes, index=character_matrix.index, columns=character_matrix.columns)
         
 
     solution = op.ul.solution(T_cell, 
                               T_mut, 
-                              input_df,
-                              output_df, 
-                              seq_error,
-                              dropout_rate,
+                              character_matrix,
+                              corrected_character_matrix, 
                               output,
                               time,
-                              T_clonal=nx.DiGraph(), # empty clonal tree 
-                              var_reads=alt_reads_df,
-                              total_reads=total_reads_df,
-                              ado_precision=ado_precision)
+                              T_clonal=nx.DiGraph())
 
     solution["tree_output"] = T
 

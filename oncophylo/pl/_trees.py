@@ -15,6 +15,9 @@ def show_tree(
     save_path=None,
     color_attr=None,
     vertical=True,
+    condense=False,
+    ranksep=0.05,
+    nodesep=0.05,
     dpi=150,
 ):
     """Draw the tree
@@ -47,7 +50,6 @@ def show_tree(
     """
     tc = tree.copy()
     root = root_id(tree)
-    tc.nodes[root]["label"] = tc.graph["root_name"]
     tc.nodes[root]["fontname"] = "Helvetica"
     tc.nodes[root]["style"] = "rounded"
     tc.nodes[root]["shape"] = "box"
@@ -96,7 +98,7 @@ def show_tree(
             fillcolor = ""
             for index, value in freq.items():
                 fillcolor += f"{index};{value}:"
-            tc.nodes[node]["fontsize"] = 14
+            tc.nodes[node]["fontsize"] = 18
             tc.nodes[node]["shape"] = "circle"
             tc.nodes[node]["fontname"] = "Helvetica"
             tc.nodes[node]["style"] = "wedged"
@@ -124,10 +126,14 @@ def show_tree(
         tc.graph["graph"] = {"fontname": "Helvetica"}
     else:
         tc.graph["graph"] = {"fontname": "Helvetica", "rankdir": "LR"}
-    tc.graph["node"] = {"fontname": "Helvetica", "fontsize": 14}
-    tc.graph["edge"] = {"fontname": "Helvetica", "fontsize": 14}
+    tc.graph["node"] = {"fontname": "Helvetica", "fontsize": 18, "color": "gray50", "penwidth": 1.0}
+    tc.graph["edge"] = {"fontname": "Helvetica", "fontsize": 16, "color": "gray50", "penwidth": 1.0}
 
     pydot_graph = nx.drawing.nx_pydot.to_pydot(tc)
+
+    if condense:
+        pydot_graph.set_ranksep(ranksep)
+        pydot_graph.set_nodesep(nodesep)
 
     if "rank_same" in tc.graph:
         for group in tc.graph["rank_same"]:
@@ -137,7 +143,9 @@ def show_tree(
             pydot_graph.add_subgraph(rank_group)
 
     if save_path:
-        if save_path.endswith(".pdf"):
+        if save_path.endswith(".svg"):
+            pydot_graph.write_svg(save_path)
+        elif save_path.endswith(".pdf"):
             pydot_graph.write_pdf(save_path)
         elif save_path.endswith(".png"):
             pydot_graph.write_png(save_path)

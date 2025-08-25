@@ -111,7 +111,7 @@ def solution(T_cell,
         Some methods output a clonal tree, so providing this will make it so a a clonal tree isn't computed.
     """
     return {op.ul.DATA.CELL_TREE: T_cell, 
-            op.ul.DATA.CLONAL_TREE: op.ul.to_clonal_tree(T_cell, output_df) if T_clonal is None else T_clonal,
+            op.ul.DATA.CLONAL_TREE: op.ul.to_clonal_tree(T_cell, corrected_character_matrix) if T_clonal is None else T_clonal,
             op.ul.DATA.MUTATION_TREE:T_mut,
             op.ul.DATA.PRED_DATA: corrected_character_matrix,
             op.ul.EVAL_KEYS.RUNTIME:time,

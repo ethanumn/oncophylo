@@ -20,7 +20,10 @@ def scaOrchard(character_matrix,
                dropout_concentration=100.0,
                dropout_rate_prior=0.05,
                theta=6.0,
-               mcmc_iters=200,
+               iters=200,
+               delta=20,
+               tau1=0.5,
+               tau2=0.1,
                seed=None, 
                log_stderr=True,
                log_stdout=True,
@@ -61,8 +64,14 @@ def scaOrchard(character_matrix,
         The dropout concentration parameter used when updating the dropout rates for each loci
     dropout_rate_prior: float
         The prior dropout rate used when updating the dropout rates for each loci
-    mcmc_iters: int
-        The maximum number of Markov Chain Monte Carlo moves at each iteration for sampling CNAs
+    iters: int
+        The maximum number of hill climbing iterations to perform for each subtree
+    delta: int 
+        The maximum number of hill climbing iterations to perform without likelihood improvement
+    tau1: float
+        The probability of performing an SNV relocation during hill climbing
+    tau2: float
+        The probability of adding a CNA clone during hill climbing
     seed: int
         The random seed to use
     log_stderr: bool
@@ -142,7 +151,7 @@ def scaOrchard(character_matrix,
         "-dropoutp": f"{dropout_rate_prior:.6f}",
         "-theta": f"{theta:.2f}",
         "-c": character_matrix_fn,
-        "-meta": meta_fn if meta is not None else "",
+        "-m": meta_fn if meta is not None else "",
         "-o": output_path,
         "-p": output_prefix,
         "-s": cell_samples_fn,
@@ -152,7 +161,10 @@ def scaOrchard(character_matrix,
         "-v": variant_reads_fn if variant_reads_df is not None else "",
         "-t": total_reads_fn if total_reads_df is not None else "",
         "-r": region_reads_fn if region_reads_df is not None else "",
-        "-iters": str(mcmc_iters),
+        "-iters": str(iters),
+        "-delta": str(delta),
+        "-tau1":  f"{tau1:.3f}",
+        "-tau2":  f"{tau2:.3f}",
     }
 
     if seed is not None:

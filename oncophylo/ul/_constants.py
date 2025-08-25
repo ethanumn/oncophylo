@@ -8,7 +8,7 @@ mutation_types = {
                  }
 
 @dataclass
-class EVAL:
+class EVAL_KEYS:
     """Dataclass that defines the keys for different evaluation metrics"""
     MODEL: str = "Model"
     DATASET: str = "Data set"
@@ -55,7 +55,7 @@ class DATA:
     DROPOUT_RATES: str = "dropout_rates"
         
 @dataclass
-class SIM:
+class SIM_KEYS:
     """Dataclass that defines all keys for simulation parameters"""
     MUTATIONS: str = "num_mutations"
     CELLS: str = "num_cells"

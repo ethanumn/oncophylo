@@ -55,11 +55,11 @@ def SCITE(character_matrix,
     gene_names_fn = os.path.join(temp_path, "gene_names.txt")
     
     # create temp files
-    m, n = input_df.shape
-    input_df = input_df.replace(-1,3)
-    input_df.T.to_csv(input_fn, sep=" ", index=False, header=False)
-    input_df.columns.to_series().to_csv(gene_names_fn, index=False, header=False)
-    cells = input_df.index.to_series().values
+    m, n = character_matrix.shape
+    character_matrix = character_matrix.replace(-1,3)
+    character_matrix.T.to_csv(input_fn, sep=" ", index=False, header=False)
+    character_matrix.columns.to_series().to_csv(gene_names_fn, index=False, header=False)
+    cells = character_matrix.index.to_series().values
 
     fn_params = f"{fn1}"
     if fn2 > 0.0:
