@@ -33,6 +33,11 @@ or
 pip install .
 ```
 
+To automatically install additional tools, see the scripts/ directory. Any tool that depends on an external binary expects the executable to be placed in the bin/ directory. If the directory does not already exist, you can create it with:
+
+```
+mkdir -p bin
+```
 
 ## Intended Use
 
