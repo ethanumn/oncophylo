@@ -33,11 +33,15 @@ or
 pip install .
 ```
 
-To automatically install additional tools, see the scripts/ directory. Any tool that depends on an external binary expects the executable to be placed in the bin/ directory. If the directory does not already exist, you can create it with:
+To automatically install additional tools, see the scripts/ directory. Any tool that depends on an external binary expects the executable to be placed in the oncophylo/bin directory. If the directory does not already exist, you can create it with:
 
 ```
-mkdir -p bin
+mkdir -p oncophylo/bin
 ```
+
+Ensure that the bin folder is at the same directory level as /ul, /tl, etc.
+
+If you are having trouble install a binary, check scripts/install_dependencies.sh to see how tools would automatically be installed.
 
 ## Intended Use
 
