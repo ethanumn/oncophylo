@@ -117,7 +117,7 @@ def LACE(character_matrix,
                           n_try_bs=n_try_bs,
                           num_processes=ro.rinterface.NA_Integer,
                           seed=seed,
-                          verbose=False,
+                          verbose=True,
                           log_file=log_file)
     runtime = time.time() - start_time
 
@@ -172,7 +172,7 @@ def LACE(character_matrix,
     # save dot file
     write_dot(T_cell, dot_fn)
     op.ul.save_output_files(destination_dir, [dot_fn])
-    
+
     if remove_temp_dir:
         shutil.rmtree(temp_path)
 
@@ -180,7 +180,5 @@ def LACE(character_matrix,
                           T_mut, 
                           character_matrix,
                           corrected_character_matrix, 
-                          fp,
-                          fn,
                           "",
                           runtime)

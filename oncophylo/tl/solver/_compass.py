@@ -105,6 +105,12 @@ def COMPASS(character_matrix,
     # run COMPASS
     output, time = op.ul.subprocess([op.ul.binary_path("COMPASS")] + args)
 
+    # check if COMPASS output a copy number file, if not, either CNA = 0 or no CNA impacted regions were identified, so we'll write a default copy number file
+    if not os.path.isfile(copy_numbers_fn):
+        node_genotypes_df = pd.read_csv(genotypes_fn, index_col=0, sep="\t")
+        total_copy_numbers_df = pd.DataFrame(2, index=node_genotypes_df.index, columns=[region.split("_")[1] for region in regions_df.index])
+        total_copy_numbers_df.to_csv(copy_numbers_fn, header=True, index=True, sep="\t")
+
     T_cell, T_mut, T, output_genotypes = postprocess_COMPASS(tree_fn, cell_assignments_fn, genotypes_fn, copy_numbers_fn)
     corrected_character_matrix = pd.DataFrame(output_genotypes, index=character_matrix.index, columns=character_matrix.columns)
         
@@ -121,6 +127,9 @@ def COMPASS(character_matrix,
 
     # save output files into a directory if provided a valid directory
     op.ul.save_output_files(destination_dir, [tree_fn, genotypes_fn, cell_assignments_fn, copy_numbers_fn])
+
+    if remove_temp_dir:
+        shutil.rmtree(temp_path)
     
     # return solution
     return solution
@@ -132,11 +141,9 @@ def postprocess_COMPASS(tree_fn, cell_assignments_fn, genotypes_fn, copy_numbers
 
     cell_assignments_df = pd.read_csv(cell_assignments_fn, header=0, index_col=0, sep="\t")
     node_genotypes_df = pd.read_csv(genotypes_fn, index_col=0, sep="\t")
-    total_copy_numbers_df = pd.DataFrame()
-    if os.path.isfile(copy_numbers_fn): # only load if we ran with CNA = 1
-        total_copy_numbers_df = pd.read_csv(copy_numbers_fn, header=0, index_col=0, sep="\t")
+    total_copy_numbers_df = pd.read_csv(copy_numbers_fn, header=0, index_col=0, sep="\t")
 
-    # process labels so they match scOrchard
+    # process labels so they match LoPhy
     for node in T_mut.nodes:
         if "label" in T_mut.nodes[node]:
             label_parts = []

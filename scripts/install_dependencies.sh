@@ -36,8 +36,22 @@ mv $LIB_DIR/SiFit/SiFit.jar $BIN_DIR/SiFit.jar
 echo "Cloning HUNTRESS"
 git clone https://github.com/PASSIONLab/HUNTRESS.git $LIB_DIR/HUNTRESS
 
+echo "Cloning LoPhy"
+git clone https://github.com/ethanumn/LoPhy.git $LIB_DIR/LoPhy
+cd LoPhy
+mkdir bin
+make
+
 # installation for MacOS
 if [ "$(uname)" == "Darwin" ]; then
+
+    # download NO-OMP version of COMPASS
+    echo "Installing COMPASS"
+    cd $LIB_DIR
+    curl -LO https://github.com/cbg-ethz/COMPASS/archive/refs/heads/no_OMP.zip
+    unzip no_OMP.zip
+    cd COMPASS-no_OMP
+    make
 
     # install SCITE
     echo "Installing SCITE"
@@ -47,9 +61,16 @@ if [ "$(uname)" == "Darwin" ]; then
     # install infSCITE
     echo "Installing infSCITE"
     cd $LIB_DIR/infSCITE
-    clang++ *.cpp -o $BIN_DIR/infSCITE   
+    clang++ *.cpp -o $BIN_DIR/infSCITE 
+
 
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then # installation for Linux
+
+    # install linux compatible version of COMPASS
+    echo "Cloning COMPASS"
+    git clone https://github.com/cbg-ethz/COMPASS $LIB_DIR/COMPASS
+    cd $LIB_DIR/COMPASS
+    make
 
     # install SCITE
     echo "Installing SCITE"
@@ -60,6 +81,10 @@ elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then # installation for Li
     echo "Installing infSCITE"
     cd $LIB_DIR/infSCITE
     g++ *.cpp -o $BIN_DIR/infSCITE
+
+    # install COMPASS
+    echo "Installing COMPASS"
+
 
 else 
     echo "Unknown machine architecture, unable to install dependencies!"

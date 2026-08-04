@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 from setuptools.command.install import install as setuptools_install
 
 class InstallGitHubDependencies(setuptools_install):
-    """Install GitHub dependencies when installing OncoPhylo"""
+    """Install GitHub dependencies when installing oncophylo"""
     
     def run(self):
         # Run the original install command
@@ -17,9 +17,9 @@ class InstallGitHubDependencies(setuptools_install):
             print(f"Warning: {script_path} does not exist.")
         
 setup(
-    name='OncoPhylo',
-    version='0.1',
-    description = "A package to perform cancer phylogeny reconstruction.",
+    name='oncophylo',
+    version='1.0',
+    description = "oncophylo is a package for inferring cancer evolution from sequencing data",
     python_requires = ">=3.8",
     packages=find_packages(),
     include_package_data=True,
@@ -36,6 +36,7 @@ setup(
             "networkx>=3.0",
             "pydot>=2.0",
             "gurobipy",
-            "anndata"
+            "anndata",
+            "rpy2>=3.5.11"
     ]
 )
